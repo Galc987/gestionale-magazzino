@@ -2,84 +2,50 @@ from flask import Flask, render_template, request, redirect
 
 app = Flask(__name__)
 
-# -----------------------
-# DATI CLIENTI / PRODOTTI
-# -----------------------
 clients = {
-    "Roberto": [
-        "Catarratto 2L",
-        "Rosato 2L",
-        "Merlot 2L",
-        "Il Nero 2L",
-        "Bianco E.N. 2L",
-        "Rosato E.N. 2L",
-        "Rosso E.N. 2L",
-        "Catarratto 1L",
-        "Rosato 1L",
-        "Merlot 1L"
-    ],
-    "Francesco": [
-        "Catarratto 2L",
-        "Chardonnay 2L",
-        "Rosato 2L",
-        "Merlot 2L",
-        "Syrah 2L",
-        "Catarratto 1L",
-        "Syrah 1L"
-    ],
-    "Emanuele": [
-        "Catarratto 2L",
-        "Rosato 2L",
-        "Il Nero 2L",
-        "Merlot 2L",
-        "Vino Rosso 2L"
-    ],
-    "Divino": [
-        "Bianco 2L",
-        "Rosato 2L",
-        "Rosso 2L",
-        "Syrah 2L"
-    ],
-    "Pachinos": [
-        "Bianco 2L",
-        "Rosato 2L",
-        "Rosso 2L",
-        "Syrah 2L"
-    ],
-    "Sisa": [
-        "Bianco 2L",
-        "Rosso 2L"
-    ]
+    "Roberto": ["Catarratto 2L", "Rosato 2L", "Merlot 2L"],
+    "Francesco": ["Catarratto 2L", "Chardonnay 2L"],
+}
+
+# magazzino base (per farlo tornare visibile)
+stock = {
+    "Catarratto 2L": 100,
+    "Rosato 2L": 80,
+    "Merlot 2L": 50,
+    "Chardonnay 2L": 30
 }
 
 orders = []
 
-# -----------------------
-# HOME
-# -----------------------
 @app.route("/")
 def index():
-    return render_template("index.html", clients=clients, orders=orders)
+    return render_template("index.html", clients=clients, stock=stock, orders=orders)
 
-# -----------------------
-# CREA ORDINE
-# -----------------------
 @app.route("/add_order", methods=["POST"])
 def add_order():
     client = request.form.get("client")
-    product = request.form.get("product")
-    qty = request.form.get("qty")
+
+    products = request.form.getlist("product")
+    qtys = request.form.getlist("qty")
+
+    order_items = []
+
+    for p, q in zip(products, qtys):
+        if q and int(q) > 0:
+            order_items.append({"product": p, "qty": int(q)})
 
     orders.append({
         "client": client,
-        "product": product,
-        "qty": qty
+        "items": order_items,
+        "done": False
     })
 
     return redirect("/")
 
-# -----------------------
-# RUN
-# -----------------------
+@app.route("/toggle_order/<int:index>")
+def toggle_order(index):
+    orders[index]["done"] = not orders[index]["done"]
+    return redirect("/")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
