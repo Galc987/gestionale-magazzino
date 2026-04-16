@@ -1,73 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Gestionale Magazzino</title>
+    <title>Gestionale</title>
 
     <style>
-        body {
-            font-family: Arial;
-            margin: 0;
-            background: #f4f6f8;
-        }
+        body { font-family: Arial; background:#f4f6f8; margin:0; }
+        header { background:#111827; color:white; padding:15px; }
+        .container { display:grid; grid-template-columns:1fr 1fr; gap:15px; padding:15px; }
 
-        header {
-            background: #111827;
-            color: white;
-            padding: 15px;
-            font-size: 20px;
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            padding: 15px;
-        }
-
-        .card {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-        }
+        .card { background:white; padding:15px; border-radius:10px; }
 
         input, select, button {
-            width: 100%;
-            padding: 8px;
-            margin-top: 5px;
+            width:100%; padding:8px; margin-top:5px;
         }
 
-        button {
-            background: #2563eb;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
+        button { background:#2563eb; color:white; border:none; cursor:pointer; }
 
-        button:hover {
-            background: #1d4ed8;
-        }
+        .done { text-decoration: line-through; opacity:0.5; }
 
-        ul {
-            padding-left: 20px;
-        }
-
-        .order {
-            background: #f3f4f6;
-            padding: 5px;
-            margin-top: 5px;
-        }
+        .order { background:#f3f4f6; padding:5px; margin-top:5px; }
     </style>
 </head>
 
 <body>
 
-<header>
-    📦 Gestionale Aziendale
-</header>
+<header>📦 Gestionale Magazzino</header>
 
 <div class="container">
 
-    <!-- CLIENTI / ORDINI -->
+    <!-- MAGAZZINO -->
+    <div class="card">
+        <h2>Magazzino</h2>
+
+        {% for p, q in stock.items() %}
+            <div>{{p}} — Stock: {{q}}</div>
+        {% endfor %}
+    </div>
+
+    <!-- ORDINI -->
     <div class="card">
         <h2>Nuovo Ordine</h2>
 
@@ -80,23 +50,27 @@
                 {% endfor %}
             </select>
 
-            <label>Prodotto</label>
-            <select name="product" id="product"></select>
-
-            <label>Quantità</label>
-            <input name="qty" type="number">
+            <div id="products"></div>
 
             <button type="submit">Crea Ordine</button>
         </form>
     </div>
 
-    <!-- MAGAZZINO SIMULATO -->
+    <!-- ORDINI INSERITI -->
     <div class="card">
         <h2>Ordini Inseriti</h2>
 
         {% for o in orders %}
-            <div class="order">
-                {{o.client}} - {{o.product}} - {{o.qty}}
+            <div class="order {% if o.done %}done{% endif %}">
+                <a href="/toggle_order/{{loop.index0}}">
+                    ☑
+                </a>
+
+                <b>{{o.client}}</b>
+
+                {% for i in o.items %}
+                    <div>{{i.product}} - {{i.qty}}</div>
+                {% endfor %}
             </div>
         {% endfor %}
     </div>
@@ -108,15 +82,19 @@
 
     function updateProducts() {
         let client = document.getElementById("client").value;
-        let productSelect = document.getElementById("product");
+        let container = document.getElementById("products");
 
-        productSelect.innerHTML = "";
+        container.innerHTML = "";
 
         data[client].forEach(p => {
-            let opt = document.createElement("option");
-            opt.value = p;
-            opt.text = p;
-            productSelect.appendChild(opt);
+
+            container.innerHTML += `
+                <div>
+                    <input type="checkbox" name="product" value="${p}">
+                    ${p}
+                    <input type="number" name="qty" placeholder="Qtà">
+                </div>
+            `;
         });
     }
 
