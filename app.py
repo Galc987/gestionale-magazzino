@@ -1,51 +1,85 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect
 
 app = Flask(__name__)
 
-products = [
-    {"name": "Catarratto 2L Roberto", "stock": 0},
-    {"name": "Rosato 2L Roberto", "stock": 0},
-    {"name": "Catarratto 2L Francesco", "stock": 0},
-]
+# -----------------------
+# DATI CLIENTI / PRODOTTI
+# -----------------------
+clients = {
+    "Roberto": [
+        "Catarratto 2L",
+        "Rosato 2L",
+        "Merlot 2L",
+        "Il Nero 2L",
+        "Bianco E.N. 2L",
+        "Rosato E.N. 2L",
+        "Rosso E.N. 2L",
+        "Catarratto 1L",
+        "Rosato 1L",
+        "Merlot 1L"
+    ],
+    "Francesco": [
+        "Catarratto 2L",
+        "Chardonnay 2L",
+        "Rosato 2L",
+        "Merlot 2L",
+        "Syrah 2L",
+        "Catarratto 1L",
+        "Syrah 1L"
+    ],
+    "Emanuele": [
+        "Catarratto 2L",
+        "Rosato 2L",
+        "Il Nero 2L",
+        "Merlot 2L",
+        "Vino Rosso 2L"
+    ],
+    "Divino": [
+        "Bianco 2L",
+        "Rosato 2L",
+        "Rosso 2L",
+        "Syrah 2L"
+    ],
+    "Pachinos": [
+        "Bianco 2L",
+        "Rosato 2L",
+        "Rosso 2L",
+        "Syrah 2L"
+    ],
+    "Sisa": [
+        "Bianco 2L",
+        "Rosso 2L"
+    ]
+}
 
 orders = []
-production = []
 
+# -----------------------
+# HOME
+# -----------------------
 @app.route("/")
-def home():
-    return render_template("index.html", products=products, orders=orders, production=production)
+def index():
+    return render_template("index.html", clients=clients, orders=orders)
 
+# -----------------------
+# CREA ORDINE
+# -----------------------
 @app.route("/add_order", methods=["POST"])
 def add_order():
-    client = request.form["client"]
-    product = request.form["product"]
-    qty = int(request.form["qty"])
+    client = request.form.get("client")
+    product = request.form.get("product")
+    qty = request.form.get("qty")
 
     orders.append({
         "client": client,
         "product": product,
-        "qty": qty,
-        "status": "da produrre"
-    })
-
-    production.append({
-        "product": product,
         "qty": qty
     })
 
-    return redirect(url_for("home"))
+    return redirect("/")
 
-@app.route("/add_stock", methods=["POST"])
-def add_stock():
-    product_name = request.form["product"]
-    qty = int(request.form["qty"])
-
-    for p in products:
-        if p["name"] == product_name:
-            p["stock"] += qty
-
-    return redirect(url_for("home"))
-
+# -----------------------
+# RUN
+# -----------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
