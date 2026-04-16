@@ -2,50 +2,124 @@
 <html>
 <head>
     <title>Gestionale Magazzino</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background: #1f2937;
+            color: white;
+            padding: 15px;
+            font-size: 20px;
+        }
+
+        .container {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        .stock-low {
+            color: red;
+            font-weight: bold;
+        }
+
+        input, button {
+            padding: 8px;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+    </style>
 </head>
+
 <body>
 
-<h1>MAGAZZINO</h1>
+<header>
+    📦 Gestionale Aziendale Magazzino
+</header>
 
-<ul>
-{% for p in products %}
-    <li>{{p.name}} - Stock: {{p.stock}}</li>
-{% endfor %}
-</ul>
+<div class="container">
 
-<h2>Aggiungi Stock</h2>
-<form method="POST" action="/add_stock">
-    <input name="product" placeholder="Nome prodotto">
-    <input name="qty" type="number" placeholder="Quantità">
-    <button type="submit">Aggiungi</button>
-</form>
+    <!-- MAGAZZINO -->
+    <div class="card">
+        <h2>Magazzino</h2>
 
-<hr>
+        <ul>
+        {% for p in products %}
+            <li class="{% if p.stock == 0 %}stock-low{% endif %}">
+                {{p.name}} — Stock: {{p.stock}}
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
 
-<h1>ORDINI</h1>
+    <!-- ORDINI -->
+    <div class="card">
+        <h2>Nuovo Ordine</h2>
 
-<form method="POST" action="/add_order">
-    <input name="client" placeholder="Cliente">
-    <input name="product" placeholder="Prodotto">
-    <input name="qty" type="number" placeholder="Quantità">
-    <button type="submit">Crea ordine</button>
-</form>
+        <form method="POST" action="/add_order">
+            <input name="client" placeholder="Cliente">
+            <input name="product" placeholder="Prodotto">
+            <input name="qty" type="number" placeholder="Quantità">
+            <button type="submit">Crea Ordine</button>
+        </form>
+    </div>
 
-<ul>
-{% for o in orders %}
-    <li>{{o.client}} - {{o.product}} - {{o.qty}} ({{o.status}})</li>
-{% endfor %}
-</ul>
+    <!-- STOCK -->
+    <div class="card">
+        <h2>Aggiungi Stock</h2>
 
-<hr>
+        <form method="POST" action="/add_stock">
+            <input name="product" placeholder="Prodotto">
+            <input name="qty" type="number" placeholder="Quantità">
+            <button type="submit">Aggiungi</button>
+        </form>
+    </div>
 
-<h1>PRODUZIONE</h1>
+    <!-- PRODUZIONE -->
+    <div class="card">
+        <h2>Produzione</h2>
 
-<ul>
-{% for p in production %}
-    <li>{{p.product}} - {{p.qty}}</li>
-{% endfor %}
-</ul>
+        <ul>
+        {% for p in production %}
+            <li>{{p.product}} — {{p.qty}}</li>
+        {% endfor %}
+        </ul>
+    </div>
+
+</div>
 
 </body>
 </html>
