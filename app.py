@@ -7,14 +7,10 @@ clients = {
     "Francesco": ["Catarratto 2L", "Chardonnay 2L"]
 }
 
-stock = {
-    "Catarratto 2L": 100,
-    "Rosato 2L": 80,
-    "Merlot 2L": 50,
-    "Chardonnay 2L": 30
-}
+stock = {}
 
 orders = []
+
 
 @app.route("/")
 def index():
@@ -24,6 +20,7 @@ def index():
         stock=stock,
         orders=orders
     )
+
 
 @app.route("/add_order", methods=["POST"])
 def add_order():
@@ -61,12 +58,19 @@ def toggle(o, i):
 @app.route("/complete/<int:o>")
 def complete(o):
 
+    client = orders[o]["client"]
     remaining = []
 
     for item in orders[o]["items"]:
 
         if item["done"]:
-            stock[item["product"]] += item["qty"]
+
+            key = client + " - " + item["product"]
+
+            if key not in stock:
+                stock[key] = 0
+
+            stock[key] += item["qty"]
 
         else:
             remaining.append(item)
