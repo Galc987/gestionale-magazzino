@@ -14,23 +14,38 @@ orders = []
 
 @app.route("/")
 def index():
+
+    grouped_stock = {}
+
+    for key, qty in stock.items():
+
+        client, product = key.split(" - ", 1)
+
+        if client not in grouped_stock:
+            grouped_stock[client] = {}
+
+        grouped_stock[client][product] = qty
+
     return render_template(
         "index.html",
         clients=clients,
-        stock=stock,
+        stock=grouped_stock,
         orders=orders
     )
 
 
 @app.route("/add_order", methods=["POST"])
 def add_order():
+
     client = request.form.get("client")
     items = []
 
     for i, product in enumerate(clients[client]):
+
         qty = request.form.get(f"qty_{i}")
 
         if qty and qty.isdigit():
+
             q = int(qty)
 
             if q > 0:
@@ -51,7 +66,9 @@ def add_order():
 
 @app.route("/toggle/<int:o>/<int:i>")
 def toggle(o, i):
+
     orders[o]["items"][i]["done"] = not orders[o]["items"][i]["done"]
+
     return redirect("/")
 
 
@@ -59,6 +76,7 @@ def toggle(o, i):
 def complete(o):
 
     client = orders[o]["client"]
+
     remaining = []
 
     for item in orders[o]["items"]:
