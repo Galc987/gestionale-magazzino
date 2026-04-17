@@ -15,10 +15,8 @@ stock = {
 }
 
 orders = []
-
 deliveries = []
 
-# ---------------- ORDINI / PRODUZIONE ----------------
 @app.route("/")
 def index():
     return render_template(
@@ -33,46 +31,45 @@ def index():
 def add_order():
     client = request.form.get("client")
 
-    products = request.form.getlist("product")
-    qtys = request.form.getlist("qty")
-
     items = []
 
-    for p, q in zip(products, qtys):
-        if q and int(q) > 0:
-            items.append({
-                "product": p,
-                "qty": int(q),
-                "done": False
-            })
+    for product in clients[client]:
+        qty = request.form.get(product)
 
-    orders.append({
-        "client": client,
-        "items": items,
-        "status": "IN_PRODUZIONE"
-    })
+        if qty and qty.strip() != "":
+            q = int(qty)
+
+            if q > 0:
+                items.append({
+                    "product": product,
+                    "qty": q,
+                    "done": False
+                })
+
+    if items:
+        orders.append({
+            "client": client,
+            "items": items,
+            "status": "IN_PRODUZIONE"
+        })
 
     return redirect("/")
 
-# ---------------- TOGGLE PRODOTTO SINGOLO ----------------
-@app.route("/toggle_item/<int:o>/<int:i>")
-def toggle_item(o, i):
+@app.route("/toggle/<int:o>/<int:i>")
+def toggle(o, i):
     orders[o]["items"][i]["done"] = not orders[o]["items"][i]["done"]
     return redirect("/")
 
-# ---------------- COMPLETA ORDINE ----------------
-@app.route("/complete_order/<int:index>")
-def complete_order(index):
-    orders[index]["status"] = "PRONTO_MAGAZZINO"
+@app.route("/complete/<int:index>")
+def complete(index):
+    orders[index]["status"] = "PRONTO"
     return redirect("/")
 
-# ---------------- CONSEGNA ----------------
 @app.route("/deliver/<int:index>")
 def deliver(index):
     deliveries.append(orders[index])
     orders[index]["status"] = "CONSEGNATO"
     return redirect("/")
 
-# ---------------- RUN ----------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
