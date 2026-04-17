@@ -4,14 +4,53 @@
 <title>Gestionale</title>
 
 <style>
-body{font-family:Arial;background:#f4f6f8;margin:0;}
-header{background:#111827;color:white;padding:15px;font-size:22px;}
-.container{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:10px;}
-.card{background:white;padding:12px;border-radius:10px;}
-input,select,button{width:100%;padding:7px;margin-top:5px;}
-button{background:#2563eb;color:white;border:none;}
-.order{background:#f3f4f6;padding:7px;margin-top:7px;}
-.done{background:#d1fae5;}
+body{
+font-family:Arial;
+margin:0;
+background:#f4f6f8;
+}
+
+header{
+background:#111827;
+color:white;
+padding:15px;
+font-size:22px;
+}
+
+.container{
+display:grid;
+grid-template-columns:1fr 1fr 1fr;
+gap:10px;
+padding:10px;
+}
+
+.card{
+background:white;
+padding:12px;
+border-radius:10px;
+}
+
+input,select,button{
+width:100%;
+padding:7px;
+margin-top:5px;
+}
+
+button{
+background:#2563eb;
+color:white;
+border:none;
+}
+
+.order{
+background:#f3f4f6;
+padding:7px;
+margin-top:7px;
+}
+
+.done{
+background:#d1fae5;
+}
 </style>
 </head>
 
@@ -21,7 +60,9 @@ button{background:#2563eb;color:white;border:none;}
 
 <div class="container">
 
+<!-- NUOVA PRODUZIONE -->
 <div class="card">
+
 <h3>Nuova Produzione</h3>
 
 <form method="POST" action="/add_order">
@@ -37,20 +78,23 @@ button{background:#2563eb;color:white;border:none;}
 <button type="submit">Inserisci Produzione</button>
 
 </form>
+
 </div>
 
+<!-- PRODUZIONE -->
 <div class="card">
+
 <h3>Produzione</h3>
 
 {% for o in orders %}
 <div class="order">
 
-<b>{{o.client}}</b> - {{o.status}}
+<b>{{o["client"]}}</b> - {{o["status"]}}
 
-{% for item in o.items %}
-<div class="{% if item.done %}done{% endif %}">
+{% for item in o["items"] %}
+<div class="{% if item['done'] %}done{% endif %}">
 <a href="/toggle/{{loop.parent.index0}}/{{loop.index0}}">☑</a>
-{{item.product}} - {{item.qty}}
+{{item["product"]}} - {{item["qty"]}}
 </div>
 {% endfor %}
 
@@ -61,7 +105,9 @@ button{background:#2563eb;color:white;border:none;}
 
 </div>
 
+<!-- MAGAZZINO -->
 <div class="card">
+
 <h3>Magazzino</h3>
 
 {% for p,q in stock.items() %}
