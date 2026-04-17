@@ -28,7 +28,6 @@ def index():
 @app.route("/add_order", methods=["POST"])
 def add_order():
     client = request.form.get("client")
-
     items = []
 
     for i, product in enumerate(clients[client]):
@@ -62,11 +61,20 @@ def toggle(o, i):
 @app.route("/complete/<int:o>")
 def complete(o):
 
+    remaining = []
+
     for item in orders[o]["items"]:
+
         if item["done"]:
             stock[item["product"]] += item["qty"]
 
-    orders.pop(o)
+        else:
+            remaining.append(item)
+
+    if remaining:
+        orders[o]["items"] = remaining
+    else:
+        orders.pop(o)
 
     return redirect("/")
 
