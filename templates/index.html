@@ -1,50 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Gestionale</title>
+    <title>Gestionale Aziendale</title>
 
     <style>
-        body { font-family: Arial; background:#f4f6f8; margin:0; }
-        header { background:#111827; color:white; padding:15px; }
-        .container { display:grid; grid-template-columns:1fr 1fr; gap:15px; padding:15px; }
+        body { font-family: Arial; margin:0; background:#f4f6f8; }
 
-        .card { background:white; padding:15px; border-radius:10px; }
-
-        input, select, button {
-            width:100%; padding:8px; margin-top:5px;
+        header {
+            background:#111827;
+            color:white;
+            padding:15px;
+            font-size:20px;
         }
 
-        button { background:#2563eb; color:white; border:none; cursor:pointer; }
+        .container {
+            display:grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap:10px;
+            padding:10px;
+        }
 
-        .done { text-decoration: line-through; opacity:0.5; }
+        .card {
+            background:white;
+            padding:10px;
+            border-radius:10px;
+        }
 
-        .order { background:#f3f4f6; padding:5px; margin-top:5px; }
+        input, select, button {
+            width:100%;
+            padding:6px;
+            margin-top:5px;
+        }
+
+        button {
+            background:#2563eb;
+            color:white;
+            border:none;
+        }
+
+        .order { padding:5px; background:#f3f4f6; margin-top:5px; }
+        .done { background:#d1fae5; }
+        .delivery { background:#bfdbfe; }
     </style>
 </head>
 
 <body>
 
-<header>📦 Gestionale Magazzino</header>
+<header>📦 Gestionale Produzione</header>
 
 <div class="container">
 
-    <!-- MAGAZZINO -->
+    <!-- PRODUZIONE -->
     <div class="card">
-        <h2>Magazzino</h2>
-
-        {% for p, q in stock.items() %}
-            <div>{{p}} — Stock: {{q}}</div>
-        {% endfor %}
-    </div>
-
-    <!-- ORDINI -->
-    <div class="card">
-        <h2>Nuovo Ordine</h2>
+        <h3>Produzione</h3>
 
         <form method="POST" action="/add_order">
 
-            <label>Cliente</label>
-            <select name="client" id="client" onchange="updateProducts()">
+            <select name="client" id="client" onchange="update()">
                 {% for c in clients %}
                     <option value="{{c}}">{{c}}</option>
                 {% endfor %}
@@ -52,25 +64,45 @@
 
             <div id="products"></div>
 
-            <button type="submit">Crea Ordine</button>
+            <button type="submit">Crea Produzione</button>
         </form>
-    </div>
 
-    <!-- ORDINI INSERITI -->
-    <div class="card">
-        <h2>Ordini Inseriti</h2>
+        <hr>
 
         {% for o in orders %}
-            <div class="order {% if o.done %}done{% endif %}">
-                <a href="/toggle_order/{{loop.index0}}">
-                    ☑
-                </a>
+            <div class="order">
+                <b>{{o.client}}</b> - {{o.status}}
 
-                <b>{{o.client}}</b>
+                <a href="/complete_order/{{loop.index0}}">✔ Produzione finita</a>
 
                 {% for i in o.items %}
-                    <div>{{i.product}} - {{i.qty}}</div>
+                    <div class="{% if i.done %}done{% endif %}">
+                        <a href="/toggle_item/{{loop.index0}}/{{loop.index}}">
+                            ☑
+                        </a>
+                        {{i.product}} - {{i.qty}}
+                    </div>
                 {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- MAGAZZINO -->
+    <div class="card">
+        <h3>Magazzino</h3>
+
+        {% for p,q in stock.items() %}
+            <div>{{p}} - {{q}}</div>
+        {% endfor %}
+    </div>
+
+    <!-- CONSEGNE -->
+    <div class="card">
+        <h3>Consegna</h3>
+
+        {% for d in deliveries %}
+            <div class="delivery">
+                <b>{{d.client}}</b> - CONSEGNATO
             </div>
         {% endfor %}
     </div>
@@ -78,27 +110,26 @@
 </div>
 
 <script>
-    const data = {{ clients | tojson }};
+const data = {{ clients | tojson }};
 
-    function updateProducts() {
-        let client = document.getElementById("client").value;
-        let container = document.getElementById("products");
+function update(){
+    let c = document.getElementById("client").value;
+    let box = document.getElementById("products");
 
-        container.innerHTML = "";
+    box.innerHTML = "";
 
-        data[client].forEach(p => {
+    data[c].forEach(p => {
+        box.innerHTML += `
+            <div>
+                <input type="checkbox" name="product" value="${p}">
+                ${p}
+                <input type="number" name="qty" placeholder="Qtà">
+            </div>
+        `;
+    });
+}
 
-            container.innerHTML += `
-                <div>
-                    <input type="checkbox" name="product" value="${p}">
-                    ${p}
-                    <input type="number" name="qty" placeholder="Qtà">
-                </div>
-            `;
-        });
-    }
-
-    updateProducts();
+update();
 </script>
 
 </body>
