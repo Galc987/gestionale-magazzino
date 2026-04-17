@@ -87,20 +87,25 @@ background:#d1fae5;
 <h3>Produzione</h3>
 
 {% for o in orders %}
+{% set order_index = loop.index0 %}
+
 <div class="order">
 
 <b>{{o["client"]}}</b> - {{o["status"]}}
 
 {% for item in o["items"] %}
+
 <div class="{% if item['done'] %}done{% endif %}">
-<a href="/toggle/{{loop.parent.index0}}/{{loop.index0}}">☑</a>
+<a href="/toggle/{{order_index}}/{{loop.index0}}">☑</a>
 {{item["product"]}} - {{item["qty"]}}
 </div>
+
 {% endfor %}
 
-<a href="/complete/{{loop.index0}}">✔ Finita</a>
+<a href="/complete/{{order_index}}">✔ Finita</a>
 
 </div>
+
 {% endfor %}
 
 </div>
