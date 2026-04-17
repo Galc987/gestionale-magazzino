@@ -50,6 +50,7 @@ margin-top:7px;
 
 .done{
 background:#d1fae5;
+padding:4px;
 }
 </style>
 </head>
@@ -91,18 +92,31 @@ background:#d1fae5;
 
 <div class="order">
 
-<b>{{o["client"]}}</b> - {{o["status"]}}
+<b>{{o["client"]}}</b>
 
 {% for item in o["items"] %}
 
 <div class="{% if item['done'] %}done{% endif %}">
-<a href="/toggle/{{order_index}}/{{loop.index0}}">☑</a>
+
+<a href="/toggle/{{order_index}}/{{loop.index0}}">
+
+{% if item["done"] %}
+✅
+{% else %}
+⬜
+{% endif %}
+
+</a>
+
 {{item["product"]}} - {{item["qty"]}}
+
 </div>
 
 {% endfor %}
 
-<a href="/complete/{{order_index}}">✔ Finita</a>
+<a href="/complete/{{order_index}}">
+<button>Passa a Magazzino</button>
+</a>
 
 </div>
 
