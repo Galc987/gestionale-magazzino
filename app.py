@@ -33,10 +33,10 @@ def add_order():
 
     items = []
 
-    for product in clients[client]:
-        qty = request.form.get(product)
+    for i, product in enumerate(clients[client]):
+        qty = request.form.get(f"qty_{i}")
 
-        if qty and qty.strip() != "":
+        if qty and qty.isdigit():
             q = int(qty)
 
             if q > 0:
@@ -63,12 +63,6 @@ def toggle(o, i):
 @app.route("/complete/<int:index>")
 def complete(index):
     orders[index]["status"] = "PRONTO"
-    return redirect("/")
-
-@app.route("/deliver/<int:index>")
-def deliver(index):
-    deliveries.append(orders[index])
-    orders[index]["status"] = "CONSEGNATO"
     return redirect("/")
 
 if __name__ == "__main__":
