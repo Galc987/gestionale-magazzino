@@ -129,8 +129,20 @@ padding:4px;
 
 <h3>Magazzino</h3>
 
-{% for p,q in stock.items() %}
-<div>{{p}} : {{q}}</div>
+{% for cliente, prodotti in stock.items() %}
+
+<div style="margin-bottom:15px; padding:8px; background:#f3f4f6; border-radius:8px;">
+
+<b>{{cliente}}</b>
+
+{% for prodotto, qty in prodotti.items() %}
+<div style="margin-top:5px;">
+{{prodotto}} : {{qty}}
+</div>
+{% endfor %}
+
+</div>
+
 {% endfor %}
 
 </div>
