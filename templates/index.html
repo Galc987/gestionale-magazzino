@@ -1,135 +1,157 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Gestionale Aziendale</title>
+<title>Gestionale</title>
 
-    <style>
-        body { font-family: Arial; margin:0; background:#f4f6f8; }
+<style>
+body{
+font-family:Arial;
+margin:0;
+background:#f4f6f8;
+}
 
-        header {
-            background:#111827;
-            color:white;
-            padding:15px;
-            font-size:20px;
-        }
+header{
+background:#111827;
+color:white;
+padding:15px;
+font-size:22px;
+}
 
-        .container {
-            display:grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap:10px;
-            padding:10px;
-        }
+.container{
+display:grid;
+grid-template-columns:1fr 1fr 1fr;
+gap:10px;
+padding:10px;
+}
 
-        .card {
-            background:white;
-            padding:10px;
-            border-radius:10px;
-        }
+.card{
+background:white;
+padding:12px;
+border-radius:10px;
+}
 
-        input, select, button {
-            width:100%;
-            padding:6px;
-            margin-top:5px;
-        }
+input,select,button{
+width:100%;
+padding:7px;
+margin-top:5px;
+}
 
-        button {
-            background:#2563eb;
-            color:white;
-            border:none;
-        }
+button{
+background:#2563eb;
+color:white;
+border:none;
+}
 
-        .order { padding:5px; background:#f3f4f6; margin-top:5px; }
-        .done { background:#d1fae5; }
-        .delivery { background:#bfdbfe; }
-    </style>
+.itemdone{
+background:#d1fae5;
+}
+
+.ready{
+background:#bfdbfe;
+padding:5px;
+margin-top:5px;
+}
+
+.order{
+background:#f3f4f6;
+padding:7px;
+margin-top:7px;
+}
+</style>
+
 </head>
-
 <body>
 
-<header>📦 Gestionale Produzione</header>
+<header>📦 Gestionale Aziendale</header>
 
 <div class="container">
 
-    <!-- PRODUZIONE -->
-    <div class="card">
-        <h3>Produzione</h3>
+<!-- NUOVA PRODUZIONE -->
+<div class="card">
 
-        <form method="POST" action="/add_order">
+<h3>Nuova Produzione</h3>
 
-            <select name="client" id="client" onchange="update()">
-                {% for c in clients %}
-                    <option value="{{c}}">{{c}}</option>
-                {% endfor %}
-            </select>
+<form method="POST" action="/add_order">
 
-            <div id="products"></div>
+<select name="client" id="client" onchange="updateProducts()">
+{% for c in clients %}
+<option value="{{c}}">{{c}}</option>
+{% endfor %}
+</select>
 
-            <button type="submit">Crea Produzione</button>
-        </form>
+<div id="products"></div>
 
-        <hr>
+<button type="submit">Inserisci Produzione</button>
 
-        {% for o in orders %}
-            <div class="order">
-                <b>{{o.client}}</b> - {{o.status}}
+</form>
 
-                <a href="/complete_order/{{loop.index0}}">✔ Produzione finita</a>
+</div>
 
-                {% for i in o.items %}
-                    <div class="{% if i.done %}done{% endif %}">
-                        <a href="/toggle_item/{{loop.index0}}/{{loop.index}}">
-                            ☑
-                        </a>
-                        {{i.product}} - {{i.qty}}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endfor %}
-    </div>
+<!-- PRODUZIONE ATTIVA -->
+<div class="card">
 
-    <!-- MAGAZZINO -->
-    <div class="card">
-        <h3>Magazzino</h3>
+<h3>Produzione</h3>
 
-        {% for p,q in stock.items() %}
-            <div>{{p}} - {{q}}</div>
-        {% endfor %}
-    </div>
+{% for o in orders %}
+<div class="order">
 
-    <!-- CONSEGNE -->
-    <div class="card">
-        <h3>Consegna</h3>
+<b>{{o.client}}</b> - {{o.status}}
 
-        {% for d in deliveries %}
-            <div class="delivery">
-                <b>{{d.client}}</b> - CONSEGNATO
-            </div>
-        {% endfor %}
-    </div>
+{% for item in o.items %}
+<div class="{% if item.done %}itemdone{% endif %}">
+<a href="/toggle/{{loop.parent.index0}}/{{loop.index0}}">☑</a>
+{{item.product}} - {{item.qty}}
+</div>
+{% endfor %}
+
+<a href="/complete/{{loop.index0}}">✔ Produzione Finita</a>
+
+</div>
+{% endfor %}
+
+</div>
+
+<!-- MAGAZZINO -->
+<div class="card">
+
+<h3>Magazzino</h3>
+
+{% for p,q in stock.items() %}
+<div>{{p}} : {{q}}</div>
+{% endfor %}
+
+<hr>
+
+<h3>Consegna</h3>
+
+{% for d in deliveries %}
+<div class="ready">
+{{d.client}} CONSEGNATO
+</div>
+{% endfor %}
+
+</div>
 
 </div>
 
 <script>
 const data = {{ clients | tojson }};
 
-function update(){
-    let c = document.getElementById("client").value;
-    let box = document.getElementById("products");
+function updateProducts(){
+let client = document.getElementById("client").value;
+let div = document.getElementById("products");
 
-    box.innerHTML = "";
+div.innerHTML = "";
 
-    data[c].forEach(p => {
-        box.innerHTML += `
-            <div>
-                <input type="checkbox" name="product" value="${p}">
-                ${p}
-                <input type="number" name="qty" placeholder="Qtà">
-            </div>
-        `;
-    });
+data[client].forEach(p => {
+div.innerHTML += `
+<label>${p}</label>
+<input type="number" name="${p}" placeholder="Quantità">
+`;
+});
 }
 
-update();
+updateProducts();
 </script>
 
 </body>
