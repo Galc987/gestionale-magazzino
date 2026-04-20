@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Produzione</title>
+<style>
+body{font-family:Arial;padding:30px;background:#f4f6f8}
+.box{background:white;padding:20px;border-radius:10px;margin-bottom:20px}
+input,select{padding:8px;width:100%;margin:6px 0}
+button{padding:10px;width:100%}
+.green{color:green}
+.red{color:red}
+</style>
+</head>
+<body>
+
+<a href="/">← Home</a>
+
+<div class="box">
+
+<h2>Nuova Produzione</h2>
+
+<form method="POST" action="/nuova_produzione">
+
+<select name="client" id="client" onchange="this.form.submit()">
+<option>Seleziona Cliente</option>
+
+{% for c in clients %}
+<option value="{{c}}">{{c}}</option>
+{% endfor %}
+
+</select>
+
+</form>
+
+</div>
+
+<div class="box">
+<h2>Ordini in Produzione</h2>
+
+{% for r in rows %}
+
+<div>
+
+<a href="/toggle/{{r.id}}">
+{% if r.done == 1 %}☑{% else %}☐{% endif %}
+</a>
+
+{{r.cliente}} - {{r.prodotto}} - {{r.qty}}
+
+{% if r.done == 1 %}
+<span class="green">Finito</span>
+{% else %}
+<span class="red">In Produzione</span>
+{% endif %}
+
+</div>
+
+{% endfor %}
+
+<br>
+<a href="/passa_magazzino"><button>Passa Finiti a Magazzino</button></a>
+
+</div>
+
+</body>
+</html>
