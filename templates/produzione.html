@@ -2,14 +2,16 @@
 <html>
 <head>
 <title>Produzione</title>
+
 <style>
 body{font-family:Arial;padding:30px;background:#f4f6f8}
 .box{background:white;padding:20px;border-radius:10px;margin-bottom:20px}
-input,select{padding:8px;width:100%;margin:6px 0}
+input,select{padding:8px;width:100%;margin:8px 0}
 button{padding:10px;width:100%}
 .green{color:green}
 .red{color:red}
 </style>
+
 </head>
 <body>
 
@@ -19,22 +21,53 @@ button{padding:10px;width:100%}
 
 <h2>Nuova Produzione</h2>
 
-<form method="POST" action="/nuova_produzione">
+<form method="GET" action="/produzione">
 
-<select name="client" id="client" onchange="this.form.submit()">
-<option>Seleziona Cliente</option>
+<select name="cliente">
+
+<option value="">Seleziona Cliente</option>
 
 {% for c in clients %}
-<option value="{{c}}">{{c}}</option>
+<option value="{{c}}" {% if request.args.get('cliente') == c %}selected{% endif %}>
+{{c}}
+</option>
 {% endfor %}
 
 </select>
 
+<button type="submit">Continua</button>
+
 </form>
+
+{% if request.args.get('cliente') %}
+
+<hr>
+
+<form method="POST" action="/nuova_produzione">
+
+<input type="hidden" name="client" value="{{request.args.get('cliente')}}">
+
+<h3>{{request.args.get('cliente')}}</h3>
+
+{% for p in clients[request.args.get('cliente')] %}
+
+<div>
+{{p}}
+<input type="number" name="qty_{{loop.index0}}" min="0">
+</div>
+
+{% endfor %}
+
+<button type="submit">Inserisci Produzione</button>
+
+</form>
+
+{% endif %}
 
 </div>
 
 <div class="box">
+
 <h2>Ordini in Produzione</h2>
 
 {% for r in rows %}
@@ -48,9 +81,9 @@ button{padding:10px;width:100%}
 {{r.cliente}} - {{r.prodotto}} - {{r.qty}}
 
 {% if r.done == 1 %}
-<span class="green">Finito</span>
+<span class="green"> Finito</span>
 {% else %}
-<span class="red">In Produzione</span>
+<span class="red"> In Produzione</span>
 {% endif %}
 
 </div>
@@ -58,7 +91,10 @@ button{padding:10px;width:100%}
 {% endfor %}
 
 <br>
-<a href="/passa_magazzino"><button>Passa Finiti a Magazzino</button></a>
+
+<a href="/passa_magazzino">
+<button>Passa Finiti a Magazzino</button>
+</a>
 
 </div>
 
