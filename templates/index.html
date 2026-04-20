@@ -1,173 +1,216 @@
+<!-- templates/index.html -->
+
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
-<title>Gestionale</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Gestionale Produzione</title>
 
 <style>
 body{
 font-family:Arial;
-margin:0;
+margin:30px;
 background:#f4f6f8;
 }
 
-header{
-background:#111827;
-color:white;
-padding:15px;
-font-size:22px;
-}
-
-.container{
-display:grid;
-grid-template-columns:1fr 1fr 1fr;
-gap:10px;
-padding:10px;
-}
-
-.card{
+.box{
 background:white;
-padding:12px;
-border-radius:10px;
+padding:20px;
+border-radius:12px;
+margin-bottom:25px;
+box-shadow:0 0 10px rgba(0,0,0,0.08);
 }
 
-input,select,button{
+h2{
+margin-top:0;
+}
+
+input,select{
+padding:8px;
+margin:5px 0;
 width:100%;
-padding:7px;
-margin-top:5px;
 }
 
 button{
-background:#2563eb;
+padding:10px;
+background:#1d4ed8;
 color:white;
 border:none;
+border-radius:8px;
+cursor:pointer;
+width:100%;
 }
 
-.order{
-background:#f3f4f6;
-padding:7px;
-margin-top:7px;
+button:hover{
+background:#1e40af;
 }
 
-.done{
-background:#d1fae5;
-padding:4px;
+.green{
+color:green;
+font-weight:bold;
+}
+
+.red{
+color:red;
+font-weight:bold;
+}
+
+.row{
+margin-bottom:10px;
+padding:8px;
+border-bottom:1px solid #eee;
 }
 </style>
-</head>
 
+</head>
 <body>
 
-<header>📦 Gestionale Aziendale</header>
-
-<div class="container">
-
-<!-- NUOVA PRODUZIONE -->
-<div class="card">
-
-<h3>Nuova Produzione</h3>
+<div class="box">
+<h2>Nuova Produzione</h2>
 
 <form method="POST" action="/add_order">
 
-<select name="client" id="client" onchange="updateProducts()">
+<select name="client" onchange="this.form.submit()">
+<option value="">Seleziona Cliente</option>
+
 {% for c in clients %}
 <option value="{{c}}">{{c}}</option>
 {% endfor %}
-</select>
 
-<div id="products"></div>
+</select>
+</form>
+
+{% if request.form.client %}
+
+<form method="POST" action="/add_order">
+
+<input type="hidden" name="client" value="{{request.form.client}}">
+
+<h3>{{request.form.client}}</h3>
+
+{% for p in clients[request.form.client] %}
+
+<div class="row">
+{{p}}
+<input type="number" name="qty_{{loop.index0}}" min="0">
+</div>
+
+{% endfor %}
 
 <button type="submit">Inserisci Produzione</button>
 
 </form>
 
+{% endif %}
 </div>
 
-<!-- PRODUZIONE -->
-<div class="card">
+<div class="box">
+<h2>Produzione</h2>
 
-<h3>Produzione</h3>
+{% for order in orders %}
 
-{% for o in orders %}
-{% set order_index = loop.index0 %}
+<h3>{{order.client}}</h3>
 
-<div class="order">
+{% for item in order.items %}
 
-<b>{{o["client"]}}</b>
+<div class="row">
 
-{% for item in o["items"] %}
-
-<div class="{% if item['done'] %}done{% endif %}">
-
-<a href="/toggle/{{order_index}}/{{loop.index0}}">
-
-{% if item["done"] %}
-✅
+<a href="/toggle/{{loop.parent.index0}}/{{loop.index0}}">
+{% if item.done %}
+☑
 {% else %}
-⬜
+☐
+{% endif %}
+</a>
+
+{{item.product}} - {{item.qty}}
+
+{% if item.done %}
+<span class="green"> Finito</span>
+{% else %}
+<span class="red"> In Produzione</span>
 {% endif %}
 
-</a>
-
-{{item["product"]}} - {{item["qty"]}}
-
 </div>
 
 {% endfor %}
 
-<a href="/complete/{{order_index}}">
-<button>Passa a Magazzino</button>
+<a href="/complete/{{loop.index0}}">
+<button>Passa Finiti a Magazzino</button>
 </a>
 
-</div>
+<hr>
 
 {% endfor %}
 
 </div>
 
-<!-- MAGAZZINO -->
-<div class="card">
-
-<h3>Magazzino</h3>
+<div class="box">
+<h2>Magazzino</h2>
 
 {% for cliente, prodotti in stock.items() %}
 
-<div style="margin-bottom:15px; padding:8px; background:#f3f4f6; border-radius:8px;">
-
-<b>{{cliente}}</b>
+<h3>{{cliente}}</h3>
 
 {% for prodotto, qty in prodotti.items() %}
-<div style="margin-top:5px;">
-{{prodotto}} : {{qty}}
-</div>
-{% endfor %}
 
+<div class="row">
+{{prodotto}} : <b>{{qty}}</b>
 </div>
 
 {% endfor %}
 
-</div>
+<hr>
+
+{% endfor %}
 
 </div>
 
-<script>
-const data = {{ clients | tojson }};
+<div class="box">
+<h2>Consegne</h2>
 
-function updateProducts(){
-let client = document.getElementById("client").value;
-let box = document.getElementById("products");
+<form method="POST" action="/delivery">
 
-box.innerHTML = "";
+<select name="client" onchange="this.form.submit()">
+<option value="">Seleziona Cliente</option>
 
-data[client].forEach((p,index) => {
-box.innerHTML += `
-<label>${p}</label>
-<input type="number" name="qty_${index}" placeholder="Quantità">
-`;
-});
-}
+{% for c in clients %}
+<option value="{{c}}">{{c}}</option>
+{% endfor %}
 
-updateProducts();
-</script>
+</select>
+
+</form>
+
+{% if request.form.client %}
+
+<form method="POST" action="/delivery">
+
+<input type="hidden" name="client" value="{{request.form.client}}">
+
+<h3>{{request.form.client}}</h3>
+
+{% for p in clients[request.form.client] %}
+
+<div class="row">
+
+{{p}}
+
+<input type="number" name="{{p}}" min="0">
+
+</div>
+
+{% endfor %}
+
+<button type="submit">Crea Consegna</button>
+
+</form>
+
+{% endif %}
+
+</div>
 
 </body>
 </html>
