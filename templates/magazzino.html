@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Magazzino</title>
+<style>
+body{font-family:Arial;padding:30px;background:#f4f6f8}
+.box{background:white;padding:20px;border-radius:10px;margin-bottom:20px}
+</style>
+</head>
+<body>
+
+<a href="/">← Home</a>
+
+<div class="box">
+
+<h2>Magazzino</h2>
+
+{% set old = "" %}
+
+{% for r in rows %}
+
+{% if old != r.cliente %}
+<h3>{{r.cliente}}</h3>
+{% set old = r.cliente %}
+{% endif %}
+
+<div>
+{{r.prodotto}} : <b>{{r.qty}}</b>
+</div>
+
+{% endfor %}
+
+</div>
+
+</body>
+</html>
