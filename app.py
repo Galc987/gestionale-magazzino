@@ -182,6 +182,32 @@ def magazzino():
     conn = db()
 
     rows = conn.execute(
+        "SELECT * FROM stock ORDER BY cliente, prodotto"
+    ).fetchall()
+
+    conn.close()
+
+    grouped = {}
+
+    for r in rows:
+        cliente = r["cliente"]
+
+        if cliente not in grouped:
+            grouped[cliente] = []
+
+        grouped[cliente].append({
+            "prodotto": r["prodotto"],
+            "qty": r["qty"]
+        })
+
+    return render_template(
+        "magazzino.html",
+        grouped=grouped
+    )
+
+    conn = db()
+
+    rows = conn.execute(
         "SELECT * FROM stock ORDER BY cliente"
     ).fetchall()
 
