@@ -1,15 +1,48 @@
-# app.py
-
-from flask import Flask, render_template, request, redirect, send_file
-from openpyxl import load_workbook
-from io import BytesIO
-from datetime import datetime
+from flask import Flask, render_template, request, redirect
+import sqlite3
 
 app = Flask(__name__)
 
-# =========================
-# CLIENTI / PRODOTTI
-# =========================
+# --------------------
+# DATABASE
+# --------------------
+
+def db():
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = db()
+    c = conn.cursor()
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS stock (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente TEXT,
+        prodotto TEXT,
+        qty INTEGER
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS produzione (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente TEXT,
+        prodotto TEXT,
+        qty INTEGER,
+        done INTEGER DEFAULT 0
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# --------------------
+# CLIENTI
+# --------------------
 
 clients = {
     "Roberto": [
@@ -24,66 +57,39 @@ clients = {
     ]
 }
 
-# =========================
-# MAGAZZINO
-# =========================
-
-stock = {}
-
-# =========================
-# PRODUZIONE
-# =========================
-
-orders = []
-
-# =========================
-# MAPPATURA TEMPLATE EXCEL
-# Riga prodotto nel template
-# =========================
-
-row_map = {
-    "Catarratto 2L": 23,
-    "Rosato 2L": 25,
-    "Merlot 2L": 27,
-    "Chardonnay 2L": 29
-}
-
-# =========================
+# --------------------
 # HOME
-# =========================
+# --------------------
 
 @app.route("/")
-def index():
+def home():
+    return render_template("home.html")
 
-    grouped_stock = {}
+# --------------------
+# PRODUZIONE
+# --------------------
 
-    for key, qty in stock.items():
+@app.route("/produzione")
+def produzione():
 
-        client, product = key.split(" - ", 1)
-
-        if client not in grouped_stock:
-            grouped_stock[client] = {}
-
-        grouped_stock[client][product] = qty
+    conn = db()
+    rows = conn.execute("SELECT * FROM produzione").fetchall()
+    conn.close()
 
     return render_template(
-        "index.html",
+        "produzione.html",
         clients=clients,
-        stock=grouped_stock,
-        orders=orders
+        rows=rows
     )
 
-# =========================
-# NUOVA PRODUZIONE
-# =========================
+@app.route("/nuova_produzione", methods=["POST"])
+def nuova_produzione():
 
-@app.route("/add_order", methods=["POST"])
-def add_order():
+    cliente = request.form["client"]
 
-    client = request.form["client"]
-    items = []
+    conn = db()
 
-    for i, product in enumerate(clients[client]):
+    for i, prodotto in enumerate(clients[cliente]):
 
         qty = request.form.get(f"qty_{i}")
 
@@ -92,167 +98,101 @@ def add_order():
             q = int(qty)
 
             if q > 0:
-                items.append({
-                    "product": product,
-                    "qty": q,
-                    "done": False
-                })
+                conn.execute(
+                    "INSERT INTO produzione(cliente, prodotto, qty) VALUES (?,?,?)",
+                    (cliente, prodotto, q)
+                )
 
-    if items:
-        orders.append({
-            "client": client,
-            "items": items
-        })
+    conn.commit()
+    conn.close()
 
-    return redirect("/")
+    return redirect("/produzione")
 
-# =========================
-# FLAG PRODOTTO FINITO
-# =========================
+@app.route("/toggle/<int:id>")
+def toggle(id):
 
-@app.route("/toggle/<int:o>/<int:i>")
-def toggle(o, i):
+    conn = db()
 
-    orders[o]["items"][i]["done"] = not orders[o]["items"][i]["done"]
+    row = conn.execute(
+        "SELECT done FROM produzione WHERE id=?",
+        (id,)
+    ).fetchone()
 
-    return redirect("/")
+    nuovo = 0 if row["done"] == 1 else 1
 
-# =========================
-# PASSA A MAGAZZINO
-# =========================
+    conn.execute(
+        "UPDATE produzione SET done=? WHERE id=?",
+        (nuovo, id)
+    )
 
-@app.route("/complete/<int:o>")
-def complete(o):
+    conn.commit()
+    conn.close()
 
-    client = orders[o]["client"]
-    remaining = []
+    return redirect("/produzione")
 
-    for item in orders[o]["items"]:
+@app.route("/passa_magazzino")
+def passa_magazzino():
 
-        if item["done"]:
+    conn = db()
 
-            key = client + " - " + item["product"]
+    finiti = conn.execute(
+        "SELECT * FROM produzione WHERE done=1"
+    ).fetchall()
 
-            if key not in stock:
-                stock[key] = 0
+    for r in finiti:
 
-            stock[key] += item["qty"]
+        trovato = conn.execute(
+            "SELECT * FROM stock WHERE cliente=? AND prodotto=?",
+            (r["cliente"], r["prodotto"])
+        ).fetchone()
+
+        if trovato:
+
+            nuova = trovato["qty"] + r["qty"]
+
+            conn.execute(
+                "UPDATE stock SET qty=? WHERE id=?",
+                (nuova, trovato["id"])
+            )
 
         else:
-            remaining.append(item)
 
-    if remaining:
-        orders[o]["items"] = remaining
-    else:
-        orders.pop(o)
+            conn.execute(
+                "INSERT INTO stock(cliente, prodotto, qty) VALUES (?,?,?)",
+                (r["cliente"], r["prodotto"], r["qty"])
+            )
 
-    return redirect("/")
+        conn.execute(
+            "DELETE FROM produzione WHERE id=?",
+            (r["id"],)
+        )
 
-# =========================
-# CONSEGNA
-# =========================
+    conn.commit()
+    conn.close()
 
-@app.route("/delivery", methods=["POST"])
-def delivery():
+    return redirect("/produzione")
 
-    client = request.form["client"]
+# --------------------
+# MAGAZZINO
+# --------------------
 
-    delivered = {}
+@app.route("/magazzino")
+def magazzino():
 
-    for product in clients[client]:
+    conn = db()
 
-        key = client + " - " + product
+    rows = conn.execute(
+        "SELECT * FROM stock ORDER BY cliente"
+    ).fetchall()
 
-        qty = request.form.get(product)
-
-        if qty and qty.isdigit():
-
-            q = int(qty)
-
-            if q > 0 and key in stock and stock[key] >= q:
-
-                stock[key] -= q
-                delivered[product] = q
-
-    app.config["LAST_CLIENT"] = client
-    app.config["LAST_ITEMS"] = delivered
+    conn.close()
 
     return render_template(
-        "download.html",
-        client=client
+        "magazzino.html",
+        rows=rows
     )
 
-# =========================
-# CREA BOLLA
-# =========================
-
-@app.route("/download_bolla")
-def download_bolla():
-
-    client = app.config["LAST_CLIENT"]
-    items = app.config["LAST_ITEMS"]
-
-    wb = load_workbook("BOLLA.xlsx")
-    ws = wb.active
-
-    ws["B2"] = client
-
-    for product, qty in items.items():
-
-        row = row_map[product]
-
-        ws[f"B{row}"] = product
-        ws[f"G{row}"] = qty
-
-    bio = BytesIO()
-    wb.save(bio)
-    bio.seek(0)
-
-    filename = f"BOLLA_{client}_{datetime.today().date()}.xlsx"
-
-    return send_file(
-        bio,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-# =========================
-# CREA CONTEGGIO
-# =========================
-
-@app.route("/download_conteggio")
-def download_conteggio():
-
-    client = app.config["LAST_CLIENT"]
-    items = app.config["LAST_ITEMS"]
-
-    wb = load_workbook("CONTEGGIO.xlsx")
-    ws = wb.active
-
-    ws["B2"] = client
-
-    for product, qty in items.items():
-
-        row = row_map[product]
-
-        ws[f"B{row}"] = product
-        ws[f"G{row}"] = qty
-
-    bio = BytesIO()
-    wb.save(bio)
-    bio.seek(0)
-
-    filename = f"CONTEGGIO_{client}_{datetime.today().date()}.xlsx"
-
-    return send_file(
-        bio,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-# =========================
+# --------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
