@@ -2,10 +2,14 @@
 <html>
 <head>
 <title>Magazzino</title>
+
 <style>
 body{font-family:Arial;padding:30px;background:#f4f6f8}
 .box{background:white;padding:20px;border-radius:10px;margin-bottom:20px}
+h3{margin-top:25px;color:#1d4ed8}
+.row{padding:6px 0;border-bottom:1px solid #eee}
 </style>
+
 </head>
 <body>
 
@@ -15,18 +19,17 @@ body{font-family:Arial;padding:30px;background:#f4f6f8}
 
 <h2>Magazzino</h2>
 
-{% set old = "" %}
+{% for cliente, prodotti in grouped.items() %}
 
-{% for r in rows %}
+<h3>{{cliente}}</h3>
 
-{% if old != r.cliente %}
-<h3>{{r.cliente}}</h3>
-{% set old = r.cliente %}
-{% endif %}
+{% for p in prodotti %}
 
-<div>
-{{r.prodotto}} : <b>{{r.qty}}</b>
+<div class="row">
+{{p.prodotto}} : <b>{{p.qty}}</b>
 </div>
+
+{% endfor %}
 
 {% endfor %}
 
