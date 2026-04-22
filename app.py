@@ -1,48 +1,51 @@
 from flask import Flask, render_template, request, redirect
-import sqlite3
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 
-# --------------------
-# DATABASE
-# --------------------
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def db():
-    conn = sqlite3.connect("database.db")
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+# ---------------------------
+# CREA TABELLE
+# ---------------------------
 
 def init_db():
     conn = db()
-    c = conn.cursor()
+    cur = conn.cursor()
 
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS stock (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         cliente TEXT,
         prodotto TEXT,
         qty INTEGER
-    )
+    );
     """)
 
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS produzione (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         cliente TEXT,
         prodotto TEXT,
         qty INTEGER,
         done INTEGER DEFAULT 0
-    )
+    );
     """)
 
     conn.commit()
+    cur.close()
     conn.close()
 
 init_db()
 
-# --------------------
+# ---------------------------
 # CLIENTI
-# --------------------
+# ---------------------------
 
 clients = {
     "Roberto": [
@@ -57,23 +60,28 @@ clients = {
     ]
 }
 
-# --------------------
+# ---------------------------
 # HOME
-# --------------------
+# ---------------------------
 
 @app.route("/")
 def home():
     return render_template("home.html")
 
-# --------------------
+# ---------------------------
 # PRODUZIONE
-# --------------------
+# ---------------------------
 
 @app.route("/produzione")
 def produzione():
 
     conn = db()
-    rows = conn.execute("SELECT * FROM produzione").fetchall()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM produzione ORDER BY id ASC")
+    rows = cur.fetchall()
+
+    cur.close()
     conn.close()
 
     return render_template(
@@ -88,6 +96,7 @@ def nuova_produzione():
     cliente = request.form["client"]
 
     conn = db()
+    cur = conn.cursor()
 
     for i, prodotto in enumerate(clients[cliente]):
 
@@ -98,12 +107,13 @@ def nuova_produzione():
             q = int(qty)
 
             if q > 0:
-                conn.execute(
-                    "INSERT INTO produzione(cliente, prodotto, qty) VALUES (?,?,?)",
+                cur.execute(
+                    "INSERT INTO produzione (cliente, prodotto, qty) VALUES (%s,%s,%s)",
                     (cliente, prodotto, q)
                 )
 
     conn.commit()
+    cur.close()
     conn.close()
 
     return redirect("/produzione")
@@ -112,20 +122,20 @@ def nuova_produzione():
 def toggle(id):
 
     conn = db()
+    cur = conn.cursor()
 
-    row = conn.execute(
-        "SELECT done FROM produzione WHERE id=?",
-        (id,)
-    ).fetchone()
+    cur.execute("SELECT done FROM produzione WHERE id=%s", (id,))
+    row = cur.fetchone()
 
     nuovo = 0 if row["done"] == 1 else 1
 
-    conn.execute(
-        "UPDATE produzione SET done=? WHERE id=?",
+    cur.execute(
+        "UPDATE produzione SET done=%s WHERE id=%s",
         (nuovo, id)
     )
 
     conn.commit()
+    cur.close()
     conn.close()
 
     return redirect("/produzione")
@@ -134,57 +144,61 @@ def toggle(id):
 def passa_magazzino():
 
     conn = db()
+    cur = conn.cursor()
 
-    finiti = conn.execute(
-        "SELECT * FROM produzione WHERE done=1"
-    ).fetchall()
+    cur.execute("SELECT * FROM produzione WHERE done=1")
+    finiti = cur.fetchall()
 
     for r in finiti:
 
-        trovato = conn.execute(
-            "SELECT * FROM stock WHERE cliente=? AND prodotto=?",
+        cur.execute(
+            "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
             (r["cliente"], r["prodotto"])
-        ).fetchone()
+        )
+
+        trovato = cur.fetchone()
 
         if trovato:
 
             nuova = trovato["qty"] + r["qty"]
 
-            conn.execute(
-                "UPDATE stock SET qty=? WHERE id=?",
+            cur.execute(
+                "UPDATE stock SET qty=%s WHERE id=%s",
                 (nuova, trovato["id"])
             )
 
         else:
 
-            conn.execute(
-                "INSERT INTO stock(cliente, prodotto, qty) VALUES (?,?,?)",
+            cur.execute(
+                "INSERT INTO stock (cliente, prodotto, qty) VALUES (%s,%s,%s)",
                 (r["cliente"], r["prodotto"], r["qty"])
             )
 
-        conn.execute(
-            "DELETE FROM produzione WHERE id=?",
+        cur.execute(
+            "DELETE FROM produzione WHERE id=%s",
             (r["id"],)
         )
 
     conn.commit()
+    cur.close()
     conn.close()
 
     return redirect("/produzione")
 
-# --------------------
+# ---------------------------
 # MAGAZZINO
-# --------------------
+# ---------------------------
 
 @app.route("/magazzino")
 def magazzino():
 
     conn = db()
+    cur = conn.cursor()
 
-    rows = conn.execute(
-        "SELECT * FROM stock ORDER BY cliente, prodotto"
-    ).fetchall()
+    cur.execute("SELECT * FROM stock ORDER BY cliente, prodotto")
+    rows = cur.fetchall()
 
+    cur.close()
     conn.close()
 
     grouped = {}
@@ -205,20 +219,7 @@ def magazzino():
         grouped=grouped
     )
 
-    conn = db()
-
-    rows = conn.execute(
-        "SELECT * FROM stock ORDER BY cliente"
-    ).fetchall()
-
-    conn.close()
-
-    return render_template(
-        "magazzino.html",
-        rows=rows
-    )
-
-# --------------------
+# ---------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
