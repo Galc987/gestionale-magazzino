@@ -1,35 +1,136 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Gestionale</title>
+<title>Magazzino</title>
+
 <style>
-body{font-family:Arial;background:#f4f6f8;padding:40px}
-.menu{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:20px;
-max-width:700px;
+body{
+font-family:Arial;
+padding:30px;
+background:#f4f6f8;
 }
-a{
-display:block;
-padding:22px;
+
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+gap:20px;
+margin-bottom:30px;
+}
+
+.card{
 background:white;
-text-decoration:none;
-color:black;
+padding:20px;
 border-radius:12px;
-font-size:24px;
-text-align:center;
-box-shadow:0 0 10px rgba(0,0,0,.08);
+box-shadow:0 0 8px rgba(0,0,0,.07);
+}
+
+.row{
+padding:7px 0;
+border-bottom:1px solid #eee;
+}
+
+.box{
+background:white;
+padding:20px;
+border-radius:12px;
+box-shadow:0 0 8px rgba(0,0,0,.07);
+}
+
+input,select,button{
+width:100%;
+padding:10px;
+margin:8px 0;
+box-sizing:border-box;
+}
+
+.ok{
+background:#e8f5e9;
+padding:12px;
+border-radius:8px;
+margin-bottom:15px;
+}
+
+.err{
+background:#ffebee;
+padding:12px;
+border-radius:8px;
+margin-bottom:15px;
 }
 </style>
+
 </head>
 <body>
 
-<h1>Gestionale Aziendale</h1>
+<a href="/">← Home</a>
 
-<div class="menu">
-<a href="/produzione">Produzione</a>
-<a href="/magazzino">Magazzino</a>
+<h1>Magazzino</h1>
+
+<div class="grid">
+
+{% for cliente, prodotti in grouped.items() %}
+<div class="card">
+
+<h2>{{cliente}}</h2>
+
+{% for p in prodotti %}
+<div class="row">{{p.prodotto}} : <b>{{p.qty}}</b></div>
+{% endfor %}
+
+</div>
+{% endfor %}
+
+</div>
+
+<div class="box">
+
+<h2>Scarico Magazzino</h2>
+
+{% if msg %}
+<div class="{% if 'completato' in msg %}ok{% else %}err{% endif %}">
+{{msg}}
+</div>
+{% endif %}
+
+<form method="GET" action="/magazzino">
+
+<select name="cliente">
+<option value="">Seleziona Cliente</option>
+
+{% for c in clients %}
+<option value="{{c}}" {% if request.args.get('cliente') == c %}selected{% endif %}>
+{{c}}
+</option>
+{% endfor %}
+
+</select>
+
+<button type="submit">Continua</button>
+
+</form>
+
+{% if request.args.get('cliente') %}
+
+<hr>
+
+<form method="POST" action="/scarica">
+
+<input type="hidden" name="client" value="{{request.args.get('cliente')}}">
+
+<h3>{{request.args.get('cliente')}}</h3>
+
+{% for p in clients[request.args.get('cliente')] %}
+<div>
+{{p}}
+<input type="number" min="0" name="qty_{{loop.index0}}">
+</div>
+{% endfor %}
+
+<button type="submit">Scarica</button>
+
+</form>
+
+{% endif %}
+
 </div>
 
 </body>
