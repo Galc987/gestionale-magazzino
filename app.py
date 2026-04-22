@@ -88,10 +88,8 @@ def produzione():
 
     conn = db()
     cur = conn.cursor()
-
     cur.execute("SELECT * FROM produzione ORDER BY id")
     rows = cur.fetchall()
-
     cur.close()
     conn.close()
 
@@ -110,9 +108,11 @@ def nuova_produzione():
     cur = conn.cursor()
 
     for i, prodotto in enumerate(clients[cliente]):
+
         qty = request.form.get(f"qty_{i}")
 
         if qty and qty.isdigit():
+
             q = int(qty)
 
             if q > 0:
@@ -192,16 +192,23 @@ def passa_magazzino():
     return redirect("/produzione")
 
 # -----------------------
-# MAGAZZINO
+# MAGAZZINO + SCARICO
 # -----------------------
 
 @app.route("/magazzino")
 def magazzino():
 
+    msg = request.args.get("msg", "")
+
     conn = db()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM stock ORDER BY cliente, prodotto")
+    cur.execute("""
+        SELECT * FROM stock
+        WHERE qty > 0
+        ORDER BY cliente, prodotto
+    """)
+
     rows = cur.fetchall()
 
     cur.close()
@@ -219,27 +226,20 @@ def magazzino():
 
     return render_template(
         "magazzino.html",
-        grouped=grouped
+        grouped=grouped,
+        clients=clients,
+        msg=msg
     )
 
-# -----------------------
-# SCARICO MAGAZZINO
-# -----------------------
-
-@app.route("/scarico")
-def scarico():
-    return render_template(
-        "scarico.html",
-        clients=clients
-    )
-
-@app.route("/esegui_scarico", methods=["POST"])
-def esegui_scarico():
+@app.route("/scarica", methods=["POST"])
+def scarica():
 
     cliente = request.form["client"]
 
     conn = db()
     cur = conn.cursor()
+
+    errore = ""
 
     for i, prodotto in enumerate(clients[cliente]):
 
@@ -258,28 +258,40 @@ def esegui_scarico():
 
                 row = cur.fetchone()
 
-                if row:
+                if not row:
+                    errore = f"{prodotto} non presente"
+                    continue
 
-                    nuova = row["qty"] - q
+                if row["qty"] < q:
+                    errore = f"{prodotto} quantità insufficiente"
+                    continue
 
-                    if nuova < 0:
-                        nuova = 0
+                nuova = row["qty"] - q
 
+                if nuova == 0:
+                    cur.execute(
+                        "DELETE FROM stock WHERE id=%s",
+                        (row["id"],)
+                    )
+                else:
                     cur.execute(
                         "UPDATE stock SET qty=%s WHERE id=%s",
                         (nuova, row["id"])
                     )
 
-                    cur.execute(
-                        "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
-                        (cliente, prodotto, q, "scarico")
-                    )
+                cur.execute(
+                    "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
+                    (cliente, prodotto, q, "scarico")
+                )
 
     conn.commit()
     cur.close()
     conn.close()
 
-    return redirect("/scarico")
+    if errore:
+        return redirect("/magazzino?msg=" + errore)
+
+    return redirect("/magazzino?msg=Scarico completato")
 
 # -----------------------
 
