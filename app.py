@@ -10,9 +10,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 def db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# ---------------------------
-# CREA TABELLE
-# ---------------------------
+# -----------------------
+# INIT DATABASE
+# -----------------------
 
 def init_db():
     conn = db()
@@ -24,7 +24,7 @@ def init_db():
         cliente TEXT,
         prodotto TEXT,
         qty INTEGER
-    );
+    )
     """)
 
     cur.execute("""
@@ -34,7 +34,18 @@ def init_db():
         prodotto TEXT,
         qty INTEGER,
         done INTEGER DEFAULT 0
-    );
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS storico (
+        id SERIAL PRIMARY KEY,
+        cliente TEXT,
+        prodotto TEXT,
+        qty INTEGER,
+        tipo TEXT,
+        data TIMESTAMP DEFAULT NOW()
+    )
     """)
 
     conn.commit()
@@ -43,9 +54,9 @@ def init_db():
 
 init_db()
 
-# ---------------------------
+# -----------------------
 # CLIENTI
-# ---------------------------
+# -----------------------
 
 clients = {
     "Roberto": [
@@ -60,17 +71,17 @@ clients = {
     ]
 }
 
-# ---------------------------
+# -----------------------
 # HOME
-# ---------------------------
+# -----------------------
 
 @app.route("/")
 def home():
     return render_template("home.html")
 
-# ---------------------------
+# -----------------------
 # PRODUZIONE
-# ---------------------------
+# -----------------------
 
 @app.route("/produzione")
 def produzione():
@@ -78,7 +89,7 @@ def produzione():
     conn = db()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM produzione ORDER BY id ASC")
+    cur.execute("SELECT * FROM produzione ORDER BY id")
     rows = cur.fetchall()
 
     cur.close()
@@ -99,16 +110,14 @@ def nuova_produzione():
     cur = conn.cursor()
 
     for i, prodotto in enumerate(clients[cliente]):
-
         qty = request.form.get(f"qty_{i}")
 
         if qty and qty.isdigit():
-
             q = int(qty)
 
             if q > 0:
                 cur.execute(
-                    "INSERT INTO produzione (cliente, prodotto, qty) VALUES (%s,%s,%s)",
+                    "INSERT INTO produzione(cliente, prodotto, qty) VALUES(%s,%s,%s)",
                     (cliente, prodotto, q)
                 )
 
@@ -156,21 +165,18 @@ def passa_magazzino():
             (r["cliente"], r["prodotto"])
         )
 
-        trovato = cur.fetchone()
+        ex = cur.fetchone()
 
-        if trovato:
-
-            nuova = trovato["qty"] + r["qty"]
+        if ex:
+            nuova = ex["qty"] + r["qty"]
 
             cur.execute(
                 "UPDATE stock SET qty=%s WHERE id=%s",
-                (nuova, trovato["id"])
+                (nuova, ex["id"])
             )
-
         else:
-
             cur.execute(
-                "INSERT INTO stock (cliente, prodotto, qty) VALUES (%s,%s,%s)",
+                "INSERT INTO stock(cliente, prodotto, qty) VALUES(%s,%s,%s)",
                 (r["cliente"], r["prodotto"], r["qty"])
             )
 
@@ -185,9 +191,9 @@ def passa_magazzino():
 
     return redirect("/produzione")
 
-# ---------------------------
+# -----------------------
 # MAGAZZINO
-# ---------------------------
+# -----------------------
 
 @app.route("/magazzino")
 def magazzino():
@@ -204,22 +210,78 @@ def magazzino():
     grouped = {}
 
     for r in rows:
-        cliente = r["cliente"]
+        c = r["cliente"]
 
-        if cliente not in grouped:
-            grouped[cliente] = []
+        if c not in grouped:
+            grouped[c] = []
 
-        grouped[cliente].append({
-            "prodotto": r["prodotto"],
-            "qty": r["qty"]
-        })
+        grouped[c].append(r)
 
     return render_template(
         "magazzino.html",
         grouped=grouped
     )
 
-# ---------------------------
+# -----------------------
+# SCARICO MAGAZZINO
+# -----------------------
+
+@app.route("/scarico")
+def scarico():
+    return render_template(
+        "scarico.html",
+        clients=clients
+    )
+
+@app.route("/esegui_scarico", methods=["POST"])
+def esegui_scarico():
+
+    cliente = request.form["client"]
+
+    conn = db()
+    cur = conn.cursor()
+
+    for i, prodotto in enumerate(clients[cliente]):
+
+        qty = request.form.get(f"qty_{i}")
+
+        if qty and qty.isdigit():
+
+            q = int(qty)
+
+            if q > 0:
+
+                cur.execute(
+                    "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
+                    (cliente, prodotto)
+                )
+
+                row = cur.fetchone()
+
+                if row:
+
+                    nuova = row["qty"] - q
+
+                    if nuova < 0:
+                        nuova = 0
+
+                    cur.execute(
+                        "UPDATE stock SET qty=%s WHERE id=%s",
+                        (nuova, row["id"])
+                    )
+
+                    cur.execute(
+                        "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
+                        (cliente, prodotto, q, "scarico")
+                    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect("/scarico")
+
+# -----------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
