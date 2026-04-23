@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Consegne</title>
+<style>
+body{font-family:Arial;background:#f4f6f8;padding:30px}
+.box{
+background:white;
+padding:25px;
+border-radius:14px;
+max-width:800px;
+box-shadow:0 0 10px rgba(0,0,0,.08);
+}
+.row{margin-bottom:15px}
+input,select{
+padding:10px;
+width:100%;
+font-size:16px;
+}
+button{
+padding:12px 20px;
+font-size:18px;
+margin-right:10px;
+margin-top:10px;
+cursor:pointer;
+}
+a{
+display:inline-block;
+margin-bottom:20px;
+text-decoration:none;
+padding:10px 15px;
+background:white;
+color:black;
+border-radius:10px;
+}
+</style>
+</head>
+<body>
+
+<a href="/">← Home</a>
+
+<div class="box">
+<h1>Consegne Roberto</h1>
+
+<form method="POST" action="/genera_bolla">
+
+<div class="row">
+<label>Cliente</label>
+<select name="client">
+<option value="Roberto">Roberto</option>
+</select>
+</div>
+
+{% for p in products %}
+<div class="row">
+<label>{{p}}</label>
+<input type="number" min="0" name="qty_{{loop.index0}}" value="0">
+</div>
+{% endfor %}
+
+<button type="submit">Genera Bolla</button>
+<button formaction="/genera_conteggio">Genera Conteggio</button>
+
+</form>
+
+{% if msg %}
+<p><b>{{msg}}</b></p>
+{% endif %}
+
+</div>
+
+</body>
+</html>
