@@ -6,9 +6,9 @@
 body{font-family:Arial;background:#f4f6f8;padding:40px}
 .menu{
 display:grid;
-grid-template-columns:1fr 1fr;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
 gap:20px;
-max-width:700px;
+max-width:900px;
 }
 a{
 display:block;
@@ -30,6 +30,7 @@ box-shadow:0 0 10px rgba(0,0,0,.08);
 <div class="menu">
 <a href="/produzione">Produzione</a>
 <a href="/magazzino">Magazzino</a>
+<a href="/storico">Storico</a>
 </div>
 
 </body>
