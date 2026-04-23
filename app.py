@@ -54,6 +54,10 @@ def init_db():
 
 init_db()
 
+# -----------------------
+# CLIENTI
+# -----------------------
+
 clients = {
     "Roberto": ["Catarratto 2L", "Rosato 2L", "Merlot 2L"],
     "Francesco": ["Catarratto 2L", "Chardonnay 2L", "Merlot 2L"]
@@ -219,6 +223,7 @@ def passa_magazzino():
 def magazzino():
 
     msg = request.args.get("msg", "")
+    cliente_sel = request.args.get("cliente", "")
 
     conn = db()
     cur = conn.cursor()
@@ -243,7 +248,8 @@ def magazzino():
         "magazzino.html",
         grouped=grouped,
         clients=clients,
-        msg=msg
+        msg=msg,
+        cliente_sel=cliente_sel
     )
 
 @app.route("/scarica", methods=["POST"])
@@ -269,6 +275,7 @@ def scarica():
     conn = db()
     cur = conn.cursor()
 
+    # CONTROLLO TOTALE PRIMA DI SCARICARE
     for prodotto, q in richieste:
 
         cur.execute(
@@ -288,6 +295,7 @@ def scarica():
             conn.close()
             return redirect("/magazzino?msg=" + prodotto + " quantità insufficiente&cliente=" + cliente)
 
+    # SOLO SE TUTTO OK SCARICA
     for prodotto, q in richieste:
 
         cur.execute(
@@ -316,6 +324,12 @@ def scarica():
     cur.close()
     conn.close()
 
+    return redirect("/magazzino?msg=Scarico completato&cliente=" + cliente)
+
+# -----------------------
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
     return redirect("/magazzino?msg=Scarico completato&cliente=" + cliente)
 
 if __name__ == "__main__":
