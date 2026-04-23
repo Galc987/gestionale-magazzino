@@ -54,21 +54,9 @@ def init_db():
 
 init_db()
 
-# -----------------------
-# CLIENTI
-# -----------------------
-
 clients = {
-    "Roberto": [
-        "Catarratto 2L",
-        "Rosato 2L",
-        "Merlot 2L"
-    ],
-    "Francesco": [
-        "Catarratto 2L",
-        "Chardonnay 2L",
-        "Merlot 2L"
-    ]
+    "Roberto": ["Catarratto 2L", "Rosato 2L", "Merlot 2L"],
+    "Francesco": ["Catarratto 2L", "Chardonnay 2L", "Merlot 2L"]
 }
 
 # -----------------------
@@ -80,6 +68,29 @@ def home():
     return render_template("home.html")
 
 # -----------------------
+# STORICO
+# -----------------------
+
+@app.route("/storico")
+def storico():
+
+    conn = db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT * FROM storico
+        ORDER BY data DESC
+        LIMIT 300
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template("storico.html", rows=rows)
+
+# -----------------------
 # PRODUZIONE
 # -----------------------
 
@@ -88,16 +99,14 @@ def produzione():
 
     conn = db()
     cur = conn.cursor()
+
     cur.execute("SELECT * FROM produzione ORDER BY id")
     rows = cur.fetchall()
+
     cur.close()
     conn.close()
 
-    return render_template(
-        "produzione.html",
-        clients=clients,
-        rows=rows
-    )
+    return render_template("produzione.html", clients=clients, rows=rows)
 
 @app.route("/nuova_produzione", methods=["POST"])
 def nuova_produzione():
@@ -116,9 +125,15 @@ def nuova_produzione():
             q = int(qty)
 
             if q > 0:
+
                 cur.execute(
                     "INSERT INTO produzione(cliente, prodotto, qty) VALUES(%s,%s,%s)",
                     (cliente, prodotto, q)
+                )
+
+                cur.execute(
+                    "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
+                    (cliente, prodotto, q, "Produzione Inserita")
                 )
 
     conn.commit()
@@ -181,6 +196,11 @@ def passa_magazzino():
             )
 
         cur.execute(
+            "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
+            (r["cliente"], r["prodotto"], r["qty"], "Passato a Magazzino")
+        )
+
+        cur.execute(
             "DELETE FROM produzione WHERE id=%s",
             (r["id"],)
         )
@@ -192,7 +212,7 @@ def passa_magazzino():
     return redirect("/produzione")
 
 # -----------------------
-# MAGAZZINO + SCARICO
+# MAGAZZINO
 # -----------------------
 
 @app.route("/magazzino")
@@ -217,12 +237,7 @@ def magazzino():
     grouped = {}
 
     for r in rows:
-        c = r["cliente"]
-
-        if c not in grouped:
-            grouped[c] = []
-
-        grouped[c].append(r)
+        grouped.setdefault(r["cliente"], []).append(r)
 
     return render_template(
         "magazzino.html",
@@ -239,6 +254,7 @@ def scarica():
     richieste = []
 
     for i, prodotto in enumerate(clients[cliente]):
+
         qty = request.form.get(f"qty_{i}")
 
         if qty and qty.isdigit():
@@ -253,7 +269,6 @@ def scarica():
     conn = db()
     cur = conn.cursor()
 
-    # CONTROLLO TOTALE PRIMA DI SCARICARE
     for prodotto, q in richieste:
 
         cur.execute(
@@ -273,7 +288,6 @@ def scarica():
             conn.close()
             return redirect("/magazzino?msg=" + prodotto + " quantità insufficiente&cliente=" + cliente)
 
-    # SOLO SE TUTTO OK SCARICA
     for prodotto, q in richieste:
 
         cur.execute(
@@ -295,7 +309,7 @@ def scarica():
 
         cur.execute(
             "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
-            (cliente, prodotto, q, "scarico")
+            (cliente, prodotto, q, "Scarico Magazzino")
         )
 
     conn.commit()
@@ -303,8 +317,6 @@ def scarica():
     conn.close()
 
     return redirect("/magazzino?msg=Scarico completato&cliente=" + cliente)
-
-# -----------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
