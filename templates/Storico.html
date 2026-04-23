@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storico Movimenti</title>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    background:#f4f6f8;
+    margin:0;
+    padding:30px;
+}
+
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+    gap:15px;
+    flex-wrap:wrap;
+}
+
+h1{
+    margin:0;
+}
+
+a{
+    text-decoration:none;
+    color:#111;
+    background:white;
+    padding:10px 16px;
+    border-radius:10px;
+    box-shadow:0 0 8px rgba(0,0,0,.06);
+}
+
+.table-box{
+    background:white;
+    border-radius:14px;
+    padding:20px;
+    box-shadow:0 0 10px rgba(0,0,0,.08);
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:700px;
+}
+
+th{
+    background:#111;
+    color:white;
+    padding:12px;
+    text-align:left;
+}
+
+td{
+    padding:12px;
+    border-bottom:1px solid #eee;
+}
+
+tr:hover{
+    background:#fafafa;
+}
+
+.badge{
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:bold;
+    display:inline-block;
+}
+
+.prod{ background:#e3f2fd; }
+.mag{ background:#e8f5e9; }
+.sca{ background:#fff3e0; }
+
+.empty{
+    background:white;
+    padding:25px;
+    border-radius:14px;
+    box-shadow:0 0 10px rgba(0,0,0,.08);
+}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+    <h1>Storico Movimenti</h1>
+    <a href="/">← Home</a>
+</div>
+
+{% if rows and rows|length > 0 %}
+
+<div class="table-box">
+
+<table>
+<thead>
+<tr>
+    <th>Data / Ora</th>
+    <th>Operazione</th>
+    <th>Cliente</th>
+    <th>Prodotto</th>
+    <th>Quantità</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for r in rows %}
+<tr>
+
+<td>{{ r.data.strftime('%d/%m/%Y %H:%M') if r.data else '' }}</td>
+
+<td>
+{% if "Produzione" in r.tipo %}
+<span class="badge prod">{{ r.tipo }}</span>
+
+{% elif "Magazzino" in r.tipo %}
+<span class="badge mag">{{ r.tipo }}</span>
+
+{% elif "Scarico" in r.tipo %}
+<span class="badge sca">{{ r.tipo }}</span>
+
+{% else %}
+{{ r.tipo }}
+{% endif %}
+</td>
+
+<td>{{ r.cliente }}</td>
+<td>{{ r.prodotto }}</td>
+<td><b>{{ r.qty }}</b></td>
+
+</tr>
+{% endfor %}
+
+</tbody>
+</table>
+
+</div>
+
+{% else %}
+
+<div class="empty">
+Nessun movimento registrato.
+</div>
+
+{% endif %}
+
+</body>
+</html>
