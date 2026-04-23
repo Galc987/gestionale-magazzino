@@ -1,37 +1,48 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Gestionale</title>
+<title>Gestionale Aziendale</title>
 <style>
-body{font-family:Arial;background:#f4f6f8;padding:40px}
-.menu{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-gap:20px;
-max-width:900px;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 40px 20px; }
+h1 { margin-bottom: 30px; color: #2c3e50; }
+.menu {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    max-width: 700px;
 }
-a{
-display:block;
-padding:22px;
-background:white;
-text-decoration:none;
-color:black;
-border-radius:12px;
-font-size:24px;
-text-align:center;
-box-shadow:0 0 10px rgba(0,0,0,.08);
+a.card {
+    display: block;
+    padding: 30px 20px;
+    background: white;
+    text-decoration: none;
+    color: #2c3e50;
+    border-radius: 12px;
+    font-size: 22px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    transition: box-shadow .2s;
 }
+a.card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.15); }
+.icon { font-size: 36px; display: block; margin-bottom: 10px; }
 </style>
 </head>
 <body>
-
 <h1>Gestionale Aziendale</h1>
-
 <div class="menu">
-<a href="/produzione">Produzione</a>
-<a href="/magazzino">Magazzino</a>
-<a href="/storico">Storico</a>
+    <a class="card" href="/produzione">
+        <span class="icon">🏭</span>
+        Produzione
+    </a>
+    <a class="card" href="/magazzino">
+        <span class="icon">📦</span>
+        Magazzino
+    </a>
+    <a class="card" href="/storico">
+        <span class="icon">📋</span>
+        Storico
+    </a>
 </div>
-
 </body>
 </html>
