@@ -384,7 +384,7 @@ def genera_bolla():
 
     for p, q in richieste:
         ws[f"A{riga}"] = nomi_roberto[p]
-        ws[f"E{riga}"] = q
+        ws[f"D{riga}"] = q
         riga += 1
 
     wb.save("BOLLA_GENERATA.xlsx")
@@ -414,8 +414,8 @@ def genera_conteggio():
 
     for p, q in richieste:
         ws[f"A{riga}"] = nomi_roberto[p]
-        ws[f"E{riga}"] = q
-        ws[f"F{riga}"] = f"=E{riga}*6"
+        ws[f"D{riga}"] = q
+        ws[f"E{riga}"] = f"=D{riga}*6"
         riga += 1
 
     wb.save("CONTEGGIO_GENERATO.xlsx")
