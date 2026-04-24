@@ -382,7 +382,14 @@ def genera_bolla():
     ws = wb.active
 
     # numero documento
-    ws["H3"] = "N. 40/2026 DEL " + datetime.now().strftime("%d/%m/%Y")
+    testo_doc = "N. 40/2026 DEL " + datetime.now().strftime("%d/%m/%Y")
+
+for col in ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"]:
+    try:
+        ws[f"{col}3"] = testo_doc
+        break
+    except:
+        pass
 
     riga = 24
     totale_colli = 0
