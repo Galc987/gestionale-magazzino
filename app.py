@@ -364,32 +364,102 @@ def scarica_consegna(richieste, tipo):
 
 @app.route("/genera_bolla", methods=["POST"])
 def genera_bolla():
+    from openpyxl import load_workbook
+    from flask import send_file
+    from datetime import datetime
+    import os
 
-    richieste = richieste_roberto()
+    cliente = request.form["client"]
 
-    if not richieste:
+    if cliente != "Roberto":
+        return redirect("/consegne?msg=Bolla attiva solo per Roberto")
+
+    conn = db()
+    cur = conn.cursor()
+
+    righe = []
+
+    for i, prodotto in enumerate(clients[cliente]):
+        qty = request.form.get(f"qty_{i}")
+
+        if qty and qty.isdigit():
+            q = int(qty)
+
+            if q > 0:
+                cur.execute(
+                    "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
+                    (cliente, prodotto)
+                )
+                row = cur.fetchone()
+
+                if not row or row["qty"] < q:
+                    cur.close()
+                    conn.close()
+                    return redirect("/consegne?msg=Stock insufficiente")
+
+                righe.append((prodotto, q, row["id"], row["qty"]))
+
+    if not righe:
+        cur.close()
+        conn.close()
         return redirect("/consegne?msg=Nessun prodotto selezionato")
 
-    if not controlla_stock(richieste):
-        return redirect("/consegne?msg=Stock insufficiente")
-
-    scarica_consegna(richieste, "Bolla Consegna")
-
-    shutil.copy("modelli/BOLLA_ROBERTO.xlsx", "BOLLA_GENERATA.xlsx")
-
-    wb = load_workbook("BOLLA_GENERATA.xlsx")
+    file_path = "modelli/bolla_roberto.xlsx"
+    wb = load_workbook(file_path)
     ws = wb.active
 
-    riga = 15
+    # numero documento
+    ws["K3"] = "N. 40/2026 DEL " + datetime.now().strftime("%d/%m/%Y")
 
-    for p, q in richieste:
-        ws[f"A{riga}"] = nomi_roberto[p]
-        ws[f"D{riga}"] = q
+    mappa = {
+        "Catarratto 2L": "PET VINO CATARRATTO LITRI 2",
+        "Rosato 2L": "PET VINO ROSATO LITRI 2",
+        "Merlot 2L": "PET VINO MERLOT LITRI 2"
+    }
+
+    riga = 24
+    totale_colli = 0
+
+    for prodotto, q, stock_id, old_qty in righe:
+
+        descrizione = mappa[prodotto]
+
+        # colonne corrette del tuo file
+        ws[f"B{riga}"] = descrizione     # descrizione prodotto
+        ws[f"G{riga}"] = q              # colli
+        ws[f"K{riga}"] = q * 6          # quantità bottiglie
+
+        totale_colli += q
+
+        nuova = old_qty - q
+
+        if nuova == 0:
+            cur.execute("DELETE FROM stock WHERE id=%s", (stock_id,))
+        else:
+            cur.execute(
+                "UPDATE stock SET qty=%s WHERE id=%s",
+                (nuova, stock_id)
+            )
+
+        cur.execute(
+            "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
+            (cliente, prodotto, q, "Bolla Generata")
+        )
+
         riga += 1
 
-    wb.save("BOLLA_GENERATA.xlsx")
+    # totale colli
+    ws["G50"] = totale_colli
+    ws["H59"] = totale_colli
 
-    return send_file("BOLLA_GENERATA.xlsx", as_attachment=True)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    output = "bolla_generata.xlsx"
+    wb.save(output)
+
+    return send_file(output, as_attachment=True)
 
 
 @app.route("/genera_conteggio", methods=["POST"])
