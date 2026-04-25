@@ -10,9 +10,8 @@ app = Flask(__name__)
 app.secret_key = "lc_wine_secret_2026"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-
-BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-MODELLI_DIR = os.path.join(BASE_DIR, "modelli")
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+MODELLI_DIR  = os.path.join(BASE_DIR, "modelli")
 
 
 def db():
@@ -24,69 +23,258 @@ def init_db():
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS stock (
-            id SERIAL PRIMARY KEY,
-            cliente TEXT,
-            prodotto TEXT,
-            qty INTEGER
+            id SERIAL PRIMARY KEY, cliente TEXT, prodotto TEXT, qty INTEGER
         )
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS produzione (
-            id SERIAL PRIMARY KEY,
-            cliente TEXT,
-            prodotto TEXT,
-            qty INTEGER,
-            done INTEGER DEFAULT 0
+            id SERIAL PRIMARY KEY, cliente TEXT, prodotto TEXT,
+            qty INTEGER, done INTEGER DEFAULT 0
         )
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS storico (
-            id SERIAL PRIMARY KEY,
-            cliente TEXT,
-            prodotto TEXT,
-            qty INTEGER,
-            tipo TEXT,
-            data TIMESTAMP DEFAULT NOW()
+            id SERIAL PRIMARY KEY, cliente TEXT, prodotto TEXT,
+            qty INTEGER, tipo TEXT, data TIMESTAMP DEFAULT NOW()
         )
     """)
     conn.commit()
     cur.close()
     conn.close()
 
-
 init_db()
 
-# --------------------------------------------------
-# DATI CLIENTI
-# --------------------------------------------------
+# ==================================================
+# CONFIGURAZIONE CLIENTI
+# ==================================================
+
 clients = {
-    "Roberto":   ["Catarratto 2L", "Rosato 2L", "Merlot 2L"],
-    "Francesco": ["Catarratto 2L", "Chardonnay 2L", "Merlot 2L"]
+    "Roberto": [
+        "Catarratto 2L", "Rosato 2L", "Merlot 2L", "Il Nero 2L",
+        "Bianco E.N. 2L", "Rosato E.N. 2L", "Rosso E.N. 2L",
+        "Catarratto 1L", "Rosato 1L", "Merlot 1L",
+        "Bianco S.E. 1L", "Rosato S.E. 1L", "Rosso S.E. 1L",
+    ],
+    "Francesco": [
+        "Catarratto 2L", "Chardonnay 2L", "Rosato 2L", "Merlot 2L", "Syrah 2L",
+        "Catarratto 1L", "Syrah 1L",
+    ],
+    "Emanuele": [
+        "Catarratto 2L", "Rosato 2L", "Il Nero 2L", "Merlot 2L",
+        "Vino Rosso 2L", "Syrah 2L",
+        "Bianco S.E. 2L", "Rosato S.E. 2L", "Rosso S.E. 2L",
+        "Catarratto R.B. 2L", "Rosato R.B. 2L", "Il Nero R.B. 2L", "Vino Rosso R.B. 2L",
+        "Catarratto 1L", "Rosato 1L", "Il Nero 1L",
+        "Bianco S.E. 1L", "Rosato S.E. 1L", "Rosso S.E. 1L",
+    ],
+    "Mazzarrone": [
+        "Divino Bianco 2L", "Divino Rosato 2L", "Divino Rosso 2L", "Divino Syrah 2L",
+        "Divino Bianco 1L", "Divino Rosato 1L", "Divino Rosso 1L", "Divino Syrah 1L",
+        "Pachinos Bianco 2L", "Pachinos Rosato 2L", "Pachinos Rosso 2L", "Pachinos Syrah 2L",
+        "Pachinos Bianco 1L", "Pachinos Rosato 1L", "Pachinos Rosso 1L", "Pachinos Syrah 1L",
+    ],
+    "Sisa": [
+        "Bianco 2L", "Rosso 2L",
+    ],
 }
-
-ROBERTO_RIGHE = {
-    "Catarratto 2L": 23,
-    "Rosato 2L":     25,
-    "Merlot 2L":     27,
-}
-ROBERTO_MOLT = {
-    "Catarratto 2L": 6,
-    "Rosato 2L":     6,
-    "Merlot 2L":     6,
-}
-
 
 # --------------------------------------------------
+# MAPPA PRODOTTI -> RIGA TEMPLATE + MOLTIPLICATORE
+# (riga colonna G nel file Excel, bt per fardello)
+# --------------------------------------------------
+
+CLIENTI_CONFIG = {
+    "Roberto": {
+        "bolla":     "bolla_roberto.xlsx",
+        "conteggio": "conteggio_roberto.xlsx",
+        "prodotti": {
+            "Catarratto 2L":  (23, 6),
+            "Rosato 2L":      (25, 6),
+            "Merlot 2L":      (27, 6),
+            "Il Nero 2L":     (29, 6),
+            "Bianco E.N. 2L": (31, 6),
+            "Rosato E.N. 2L": (33, 6),
+            "Rosso E.N. 2L":  (35, 6),
+            "Catarratto 1L":  (37, 12),
+            "Rosato 1L":      (39, 12),
+            "Merlot 1L":      (41, 12),
+            "Bianco S.E. 1L": (43, 16),
+            "Rosato S.E. 1L": (45, 16),
+            "Rosso S.E. 1L":  (47, 16),
+        },
+        "cella_titolo_bolla":     "H2",
+        "cella_data_bolla":       "F55",
+        "cella_titolo_conteggio": "G2",
+        "cella_data_conteggio":   "F53",
+    },
+    "Francesco": {
+        "bolla":     "bolla_francesco.xlsx",
+        "conteggio": "conteggio_francesco.xlsx",
+        "prodotti": {
+            "Catarratto 2L":  (21, 6),
+            "Chardonnay 2L":  (23, 6),
+            "Rosato 2L":      (25, 6),
+            "Merlot 2L":      (27, 6),
+            "Syrah 2L":       (29, 6),
+            "Catarratto 1L":  (43, 12),
+            "Syrah 1L":       (45, 12),
+        },
+        "cella_titolo_bolla":     "H2",
+        "cella_data_bolla":       "F55",
+        "cella_titolo_conteggio": "H2",
+        "cella_data_conteggio":   "F65",
+    },
+    "Emanuele": {
+        "bolla":     "bolla_emanuele.xlsx",
+        "conteggio": "conteggio_emanuele.xlsx",
+        "prodotti": {
+            # bolla: righe colonna G
+            # conteggio: stesse righe (verificate)
+            "Catarratto 2L":     (21, 9),   # bolla G21 / conteggio G25
+            "Rosato 2L":         (23, 9),
+            "Il Nero 2L":        (25, 9),
+            "Vino Rosso 2L":     (27, 9),
+            "Syrah 2L":          (29, 9),
+            "Merlot 2L":         (31, 9),
+            "Catarratto 1L":     (33, 16),
+            "Rosato 1L":         (35, 16),
+            "Il Nero 1L":        (37, 16),
+            "Catarratto R.B. 2L":(41, 9),
+            "Rosato R.B. 2L":    (43, 9),
+            "Il Nero R.B. 2L":   (45, 9),
+            "Vino Rosso R.B. 2L":(47, 9),
+            "Bianco S.E. 2L":    (51, 9),
+            "Rosato S.E. 2L":    (53, 9),
+            "Rosso S.E. 2L":     (55, 9),
+            "Bianco S.E. 1L":    (57, 16),
+            "Rosato S.E. 1L":    (59, 16),
+            "Rosso S.E. 1L":     (61, 16),
+        },
+        "cella_titolo_bolla":     "H2",
+        "cella_data_bolla":       "F67",
+        "cella_titolo_conteggio": "H2",
+        "cella_data_conteggio":   "F71",
+    },
+    "Mazzarrone": {
+        "bolla":     None,
+        "conteggio": None,
+        "prodotti":  {},
+        "cella_titolo_bolla":     None,
+        "cella_data_bolla":       None,
+        "cella_titolo_conteggio": None,
+        "cella_data_conteggio":   None,
+    },
+    "Sisa": {
+        "bolla":     None,
+        "conteggio": None,
+        "prodotti":  {},
+        "cella_titolo_bolla":     None,
+        "cella_data_bolla":       None,
+        "cella_titolo_conteggio": None,
+        "cella_data_conteggio":   None,
+    },
+}
+
+# Righe da azzerare per ogni cliente (tutte le righe prodotto del template)
+RIGHE_AZZERAMENTO = {
+    "Roberto":   [23,25,27,29,31,33,35,37,39,41,43,45,47],
+    "Francesco": [21,23,25,27,29,35,37,39,43,45],
+    "Emanuele":  [21,23,25,27,29,31,33,35,37,41,43,45,47,51,53,55,57,59,61],
+    "Mazzarrone": [],
+    "Sisa":       [],
+}
+
+# Per il conteggio Emanuele le righe G sono diverse dalla bolla
+EMANUELE_RIGHE_CONTEGGIO = {
+    "Catarratto 2L":     25,
+    "Rosato 2L":         27,
+    "Il Nero 2L":        29,
+    "Vino Rosso 2L":     31,
+    "Syrah 2L":          33,
+    "Merlot 2L":         35,
+    "Catarratto 1L":     37,
+    "Rosato 1L":         39,
+    "Il Nero 1L":        41,
+    "Catarratto R.B. 2L":45,
+    "Rosato R.B. 2L":    47,
+    "Il Nero R.B. 2L":   49,
+    "Vino Rosso R.B. 2L":51,
+    "Bianco S.E. 2L":    55,
+    "Rosato S.E. 2L":    57,
+    "Rosso S.E. 2L":     59,
+    "Bianco S.E. 1L":    61,
+    "Rosato S.E. 1L":    63,
+    "Rosso S.E. 1L":     65,
+}
+RIGHE_AZZERAMENTO_CONTEGGIO_EMANUELE = [25,27,29,31,33,35,37,39,41,45,47,49,51,55,57,59,61,63,65]
+
+
+# ==================================================
+# FUNZIONI EXCEL
+# ==================================================
+
+def _aggiorna_excel(ws, cliente, richieste, tipo="bolla"):
+    cfg = CLIENTI_CONFIG[cliente]
+
+    if tipo == "conteggio" and cliente == "Emanuele":
+        righe_az = RIGHE_AZZERAMENTO_CONTEGGIO_EMANUELE
+        for riga in righe_az:
+            ws[f"G{riga}"] = 0
+        for prodotto, qty_bt in richieste:
+            if prodotto in EMANUELE_RIGHE_CONTEGGIO:
+                riga = EMANUELE_RIGHE_CONTEGGIO[prodotto]
+                molt = cfg["prodotti"][prodotto][1]
+                ws[f"G{riga}"] = qty_bt / molt
+    else:
+        for riga in RIGHE_AZZERAMENTO.get(cliente, []):
+            ws[f"G{riga}"] = 0
+        for prodotto, qty_bt in richieste:
+            if prodotto in cfg["prodotti"]:
+                riga, molt = cfg["prodotti"][prodotto]
+                ws[f"G{riga}"] = qty_bt / molt
+
+
+def _genera_file(cliente, richieste, tipo):
+    cfg = CLIENTI_CONFIG[cliente]
+    nome_modello = cfg["bolla"] if tipo == "bolla" else cfg["conteggio"]
+
+    if not nome_modello:
+        return None, "Modello non ancora disponibile per questo cliente"
+
+    file_modello = os.path.join(MODELLI_DIR, nome_modello)
+    if not os.path.exists(file_modello):
+        return None, f"File modello mancante: {nome_modello}"
+
+    wb = load_workbook(file_modello)
+    ws = wb.active
+
+    cella_titolo = cfg[f"cella_titolo_{tipo}"]
+    cella_data   = cfg[f"cella_data_{tipo}"]
+
+    if cella_titolo:
+        ws[cella_titolo] = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
+    if cella_data:
+        ws[cella_data] = "DATA RITIRO\n\n\n"
+
+    _aggiorna_excel(ws, cliente, richieste, tipo)
+
+    nome_out = f"{tipo}_generato_{cliente.lower()}.xlsx"
+    output   = os.path.join(BASE_DIR, nome_out)
+    wb.save(output)
+    return output, None
+
+
+# ==================================================
 # HOME
-# --------------------------------------------------
+# ==================================================
 @app.route("/")
 def home():
     return render_template("home.html")
 
 
-# --------------------------------------------------
+# ==================================================
 # STORICO
-# --------------------------------------------------
+# ==================================================
 @app.route("/storico")
 def storico():
     conn = db()
@@ -98,9 +286,9 @@ def storico():
     return render_template("storico.html", rows=rows)
 
 
-# --------------------------------------------------
+# ==================================================
 # PRODUZIONE
-# --------------------------------------------------
+# ==================================================
 @app.route("/produzione")
 def produzione():
     conn = db()
@@ -163,15 +351,11 @@ def passa_magazzino():
         )
         ex = cur.fetchone()
         if ex:
-            cur.execute(
-                "UPDATE stock SET qty=%s WHERE id=%s",
-                (ex["qty"] + r["qty"], ex["id"])
-            )
+            cur.execute("UPDATE stock SET qty=%s WHERE id=%s",
+                        (ex["qty"] + r["qty"], ex["id"]))
         else:
-            cur.execute(
-                "INSERT INTO stock(cliente, prodotto, qty) VALUES(%s,%s,%s)",
-                (r["cliente"], r["prodotto"], r["qty"])
-            )
+            cur.execute("INSERT INTO stock(cliente, prodotto, qty) VALUES(%s,%s,%s)",
+                        (r["cliente"], r["prodotto"], r["qty"]))
         cur.execute(
             "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
             (r["cliente"], r["prodotto"], r["qty"], "Passato a Magazzino")
@@ -183,9 +367,9 @@ def passa_magazzino():
     return redirect("/produzione")
 
 
-# --------------------------------------------------
+# ==================================================
 # MAGAZZINO
-# --------------------------------------------------
+# ==================================================
 @app.route("/magazzino")
 def magazzino():
     msg = request.args.get("msg", "")
@@ -199,13 +383,8 @@ def magazzino():
     grouped = {}
     for r in rows:
         grouped.setdefault(r["cliente"], []).append(r)
-    return render_template(
-        "magazzino.html",
-        grouped=grouped,
-        clients=clients,
-        msg=msg,
-        cliente_sel=cliente_sel
-    )
+    return render_template("magazzino.html", grouped=grouped, clients=clients,
+                           msg=msg, cliente_sel=cliente_sel)
 
 
 @app.route("/scarica", methods=["POST"])
@@ -223,24 +402,16 @@ def scarica():
     conn = db()
     cur = conn.cursor()
     for prodotto, q in richieste:
-        cur.execute(
-            "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
-            (cliente, prodotto)
-        )
+        cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         if not row:
-            cur.close()
-            conn.close()
+            cur.close(); conn.close()
             return redirect("/magazzino?msg=" + prodotto + " non presente&cliente=" + cliente)
         if row["qty"] < q:
-            cur.close()
-            conn.close()
+            cur.close(); conn.close()
             return redirect("/magazzino?msg=" + prodotto + " quantita insufficiente&cliente=" + cliente)
     for prodotto, q in richieste:
-        cur.execute(
-            "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
-            (cliente, prodotto)
-        )
+        cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         nuova = row["qty"] - q
         if nuova == 0:
@@ -257,42 +428,29 @@ def scarica():
     return redirect("/magazzino?msg=Scarico completato&cliente=" + cliente)
 
 
-# --------------------------------------------------
-# CONSEGNE — pagina principale
-# --------------------------------------------------
+# ==================================================
+# CONSEGNE
+# ==================================================
 @app.route("/consegne")
 def consegne():
     msg = request.args.get("msg", "")
     cliente_sel = request.args.get("cliente", "")
-
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM stock WHERE qty > 0 ORDER BY cliente, prodotto")
     rows = cur.fetchall()
     cur.close()
     conn.close()
-
     grouped = {}
     for r in rows:
         grouped.setdefault(r["cliente"], []).append(r)
-
-    return render_template(
-        "consegne.html",
-        clients=clients,
-        grouped=grouped,
-        cliente_sel=cliente_sel,
-        msg=msg
-    )
+    return render_template("consegne.html", clients=clients, grouped=grouped,
+                           cliente_sel=cliente_sel, msg=msg)
 
 
-# --------------------------------------------------
-# ESEGUI CONSEGNA — scala magazzino UNA VOLTA SOLA
-# poi salva i dati in sessione per generare i doc
-# --------------------------------------------------
 @app.route("/esegui_consegna", methods=["POST"])
 def esegui_consegna():
     cliente = request.form["client"]
-
     richieste = []
     for i, prodotto in enumerate(clients[cliente]):
         qty = request.form.get(f"qty_{i}")
@@ -300,35 +458,21 @@ def esegui_consegna():
             q = int(qty)
             if q > 0:
                 richieste.append((prodotto, q))
-
     if not richieste:
         return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
-
     conn = db()
     cur = conn.cursor()
-
-    # Controllo disponibilita
     for prodotto, q in richieste:
-        cur.execute(
-            "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
-            (cliente, prodotto)
-        )
+        cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         if not row:
-            cur.close()
-            conn.close()
+            cur.close(); conn.close()
             return redirect("/consegne?msg=" + prodotto + " non presente&cliente=" + cliente)
         if row["qty"] < q:
-            cur.close()
-            conn.close()
+            cur.close(); conn.close()
             return redirect("/consegne?msg=" + prodotto + " quantita insufficiente&cliente=" + cliente)
-
-    # Scarico magazzino — UNA VOLTA SOLA
     for prodotto, q in richieste:
-        cur.execute(
-            "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
-            (cliente, prodotto)
-        )
+        cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         nuova = row["qty"] - q
         if nuova == 0:
@@ -339,114 +483,52 @@ def esegui_consegna():
             "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
             (cliente, prodotto, q, "Consegna")
         )
-
     conn.commit()
     cur.close()
     conn.close()
-
-    # Salva in sessione i dati per generare i documenti
-    session["consegna_cliente"]  = cliente
+    session["consegna_cliente"]   = cliente
     session["consegna_richieste"] = json.dumps(richieste)
-
     return redirect("/conferma_consegna")
 
 
-# --------------------------------------------------
-# PAGINA CONFERMA — scarica bolla e/o conteggio
-# --------------------------------------------------
 @app.route("/conferma_consegna")
 def conferma_consegna():
     cliente   = session.get("consegna_cliente", "")
     richieste = json.loads(session.get("consegna_richieste", "[]"))
-
     if not cliente or not richieste:
         return redirect("/consegne?msg=Nessuna consegna attiva")
-
-    return render_template(
-        "conferma_consegna.html",
-        cliente=cliente,
-        richieste=richieste
-    )
+    return render_template("conferma_consegna.html", cliente=cliente, richieste=richieste)
 
 
-# --------------------------------------------------
-# FUNZIONE INTERNA: aggiorna fardelli nel template
-# --------------------------------------------------
-def _aggiorna_template_roberto(ws, richieste):
-    for riga in [23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47]:
-        ws[f"G{riga}"] = 0
-    for prodotto, qty_bt in richieste:
-        if prodotto in ROBERTO_RIGHE:
-            riga = ROBERTO_RIGHE[prodotto]
-            molt = ROBERTO_MOLT[prodotto]
-            ws[f"G{riga}"] = qty_bt / molt
-
-
-# --------------------------------------------------
-# DOWNLOAD BOLLA (no scarico magazzino)
-# --------------------------------------------------
 @app.route("/download_bolla")
 def download_bolla():
     cliente   = session.get("consegna_cliente", "")
     richieste = json.loads(session.get("consegna_richieste", "[]"))
-
     if not cliente or not richieste:
         return redirect("/consegne?msg=Nessuna consegna attiva")
-
-    file_modello = os.path.join(MODELLI_DIR, "bolla_roberto.xlsx")
-    if not os.path.exists(file_modello):
-        return redirect("/conferma_consegna?msg=File modello bolla mancante")
-
-    wb = load_workbook(file_modello)
-    ws = wb.active
-
-    ws["H2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
-    ws["F55"] = "DATA RITIRO\n\n\n"
-
-    _aggiorna_template_roberto(ws, richieste)
-
-    output = os.path.join(BASE_DIR, "bolla_generata.xlsx")
-    wb.save(output)
-
-    return send_file(output, as_attachment=True, download_name="Bolla_Roberto.xlsx")
+    output, errore = _genera_file(cliente, richieste, "bolla")
+    if errore:
+        return redirect("/conferma_consegna?msg=" + errore)
+    return send_file(output, as_attachment=True,
+                     download_name=f"Bolla_{cliente}.xlsx")
 
 
-# --------------------------------------------------
-# DOWNLOAD CONTEGGIO (no scarico magazzino)
-# --------------------------------------------------
 @app.route("/download_conteggio")
 def download_conteggio():
     cliente   = session.get("consegna_cliente", "")
     richieste = json.loads(session.get("consegna_richieste", "[]"))
-
     if not cliente or not richieste:
         return redirect("/consegne?msg=Nessuna consegna attiva")
-
-    file_modello = os.path.join(MODELLI_DIR, "conteggio_roberto.xlsx")
-    if not os.path.exists(file_modello):
-        return redirect("/conferma_consegna?msg=File modello conteggio mancante")
-
-    wb = load_workbook(file_modello)
-    ws = wb.active
-
-    ws["G2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
-    ws["F53"] = "DATA RITIRO\n\n\n"
-
-    _aggiorna_template_roberto(ws, richieste)
-
-    output = os.path.join(BASE_DIR, "conteggio_generato.xlsx")
-    wb.save(output)
-
-    return send_file(output, as_attachment=True, download_name="Conteggio_Roberto.xlsx")
+    output, errore = _genera_file(cliente, richieste, "conteggio")
+    if errore:
+        return redirect("/conferma_consegna?msg=" + errore)
+    return send_file(output, as_attachment=True,
+                     download_name=f"Conteggio_{cliente}.xlsx")
 
 
-# --------------------------------------------------
-# SOLO BOLLA — senza scalare magazzino
-# --------------------------------------------------
 @app.route("/solo_bolla", methods=["POST"])
 def solo_bolla():
     cliente = request.form["client"]
-
     richieste = []
     for i, prodotto in enumerate(clients[cliente]):
         qty = request.form.get(f"qty_{i}")
@@ -454,35 +536,18 @@ def solo_bolla():
             q = int(qty)
             if q > 0:
                 richieste.append((prodotto, q))
-
     if not richieste:
         return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
-
-    if cliente != "Roberto":
-        return redirect("/consegne?msg=Bolla disponibile solo per Roberto&cliente=" + cliente)
-
-    file_modello = os.path.join(MODELLI_DIR, "bolla_roberto.xlsx")
-    if not os.path.exists(file_modello):
-        return redirect("/consegne?msg=File modello bolla mancante&cliente=" + cliente)
-
-    wb = load_workbook(file_modello)
-    ws = wb.active
-    ws["H2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
-    ws["F55"] = "DATA RITIRO\n\n\n"
-    _aggiorna_template_roberto(ws, richieste)
-
-    output = os.path.join(BASE_DIR, "bolla_generata.xlsx")
-    wb.save(output)
-    return send_file(output, as_attachment=True, download_name="Bolla_Roberto.xlsx")
+    output, errore = _genera_file(cliente, richieste, "bolla")
+    if errore:
+        return redirect("/consegne?msg=" + errore + "&cliente=" + cliente)
+    return send_file(output, as_attachment=True,
+                     download_name=f"Bolla_{cliente}.xlsx")
 
 
-# --------------------------------------------------
-# SOLO CONTEGGIO — senza scalare magazzino
-# --------------------------------------------------
 @app.route("/solo_conteggio", methods=["POST"])
 def solo_conteggio():
     cliente = request.form["client"]
-
     richieste = []
     for i, prodotto in enumerate(clients[cliente]):
         qty = request.form.get(f"qty_{i}")
@@ -490,30 +555,17 @@ def solo_conteggio():
             q = int(qty)
             if q > 0:
                 richieste.append((prodotto, q))
-
     if not richieste:
         return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
-
-    if cliente != "Roberto":
-        return redirect("/consegne?msg=Conteggio disponibile solo per Roberto&cliente=" + cliente)
-
-    file_modello = os.path.join(MODELLI_DIR, "conteggio_roberto.xlsx")
-    if not os.path.exists(file_modello):
-        return redirect("/consegne?msg=File modello conteggio mancante&cliente=" + cliente)
-
-    wb = load_workbook(file_modello)
-    ws = wb.active
-    ws["G2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
-    ws["F53"] = "DATA RITIRO\n\n\n"
-    _aggiorna_template_roberto(ws, richieste)
-
-    output = os.path.join(BASE_DIR, "conteggio_generato.xlsx")
-    wb.save(output)
-    return send_file(output, as_attachment=True, download_name="Conteggio_Roberto.xlsx")
+    output, errore = _genera_file(cliente, richieste, "conteggio")
+    if errore:
+        return redirect("/consegne?msg=" + errore + "&cliente=" + cliente)
+    return send_file(output, as_attachment=True,
+                     download_name=f"Conteggio_{cliente}.xlsx")
 
 
-# --------------------------------------------------
+# ==================================================
 # START
-# --------------------------------------------------
+# ==================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
