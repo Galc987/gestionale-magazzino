@@ -441,6 +441,78 @@ def download_conteggio():
 
 
 # --------------------------------------------------
+# SOLO BOLLA — senza scalare magazzino
+# --------------------------------------------------
+@app.route("/solo_bolla", methods=["POST"])
+def solo_bolla():
+    cliente = request.form["client"]
+
+    richieste = []
+    for i, prodotto in enumerate(clients[cliente]):
+        qty = request.form.get(f"qty_{i}")
+        if qty and qty.isdigit():
+            q = int(qty)
+            if q > 0:
+                richieste.append((prodotto, q))
+
+    if not richieste:
+        return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
+
+    if cliente != "Roberto":
+        return redirect("/consegne?msg=Bolla disponibile solo per Roberto&cliente=" + cliente)
+
+    file_modello = os.path.join(MODELLI_DIR, "bolla_roberto.xlsx")
+    if not os.path.exists(file_modello):
+        return redirect("/consegne?msg=File modello bolla mancante&cliente=" + cliente)
+
+    wb = load_workbook(file_modello)
+    ws = wb.active
+    ws["H2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
+    ws["F55"] = "DATA RITIRO\n\n\n"
+    _aggiorna_template_roberto(ws, richieste)
+
+    output = os.path.join(BASE_DIR, "bolla_generata.xlsx")
+    wb.save(output)
+    return send_file(output, as_attachment=True, download_name="Bolla_Roberto.xlsx")
+
+
+# --------------------------------------------------
+# SOLO CONTEGGIO — senza scalare magazzino
+# --------------------------------------------------
+@app.route("/solo_conteggio", methods=["POST"])
+def solo_conteggio():
+    cliente = request.form["client"]
+
+    richieste = []
+    for i, prodotto in enumerate(clients[cliente]):
+        qty = request.form.get(f"qty_{i}")
+        if qty and qty.isdigit():
+            q = int(qty)
+            if q > 0:
+                richieste.append((prodotto, q))
+
+    if not richieste:
+        return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
+
+    if cliente != "Roberto":
+        return redirect("/consegne?msg=Conteggio disponibile solo per Roberto&cliente=" + cliente)
+
+    file_modello = os.path.join(MODELLI_DIR, "conteggio_roberto.xlsx")
+    if not os.path.exists(file_modello):
+        return redirect("/consegne?msg=File modello conteggio mancante&cliente=" + cliente)
+
+    wb = load_workbook(file_modello)
+    ws = wb.active
+    ws["G2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
+    ws["F53"] = "DATA RITIRO\n\n\n"
+    _aggiorna_template_roberto(ws, richieste)
+
+    output = os.path.join(BASE_DIR, "conteggio_generato.xlsx")
+    wb.save(output)
+    return send_file(output, as_attachment=True, download_name="Conteggio_Roberto.xlsx")
+
+
+# --------------------------------------------------
 # START
 # --------------------------------------------------
 if __name__ == "__main__":
