@@ -37,6 +37,10 @@ button {
 }
 .btn-consegna  { background: #27ae60; }
 .btn-consegna:hover  { background: #1e8449; }
+.btn-solo-bolla { background: #2980b9; }
+.btn-solo-bolla:hover { background: #1a6fa0; }
+.btn-solo-conteggio { background: #8e44ad; }
+.btn-solo-conteggio:hover { background: #6c3483; }
 .btn-continua  { background: #2c3e50; }
 .btn-continua:hover  { background: #1a252f; }
 .msg-err { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 7px; margin-bottom: 15px; font-weight: bold; max-width: 860px; }
@@ -99,14 +103,29 @@ label { font-weight: bold; color: #444; }
 
     {% if cliente_sel %}
     <hr style="margin:20px 0">
-    <form method="POST" action="/esegui_consegna">
+    <form method="POST">
         <input type="hidden" name="client" value="{{ cliente_sel }}">
         <h3>{{ cliente_sel }} — quantità bottiglie</h3>
         {% for p in clients[cliente_sel] %}
         <label>{{ p }}</label>
         <input type="number" name="qty_{{ loop.index0 }}" min="0" placeholder="0">
         {% endfor %}
-        <button type="submit" class="btn-consegna">✅ Esegui Consegna</button>
+
+        <button type="submit" formaction="/esegui_consegna" class="btn-consegna">
+            ✅ Esegui Consegna (scala magazzino + genera documenti)
+        </button>
+
+        <hr style="margin:15px 0; border-color:#eee;">
+        <p style="font-size:13px; color:#888; margin-bottom:10px;">
+            ⚠️ I bottoni qui sotto generano il documento <strong>senza scalare il magazzino</strong>.
+        </p>
+
+        <button type="submit" formaction="/solo_bolla" class="btn-solo-bolla">
+            📄 Solo Bolla (senza scalare)
+        </button>
+        <button type="submit" formaction="/solo_conteggio" class="btn-solo-conteggio">
+            🧮 Solo Conteggio (senza scalare)
+        </button>
     </form>
     {% endif %}
 </div>
