@@ -25,21 +25,20 @@ select, input[type=number] {
     border-radius: 6px;
     font-size: 15px;
 }
-.btn-row { display: flex; gap: 12px; margin-top: 10px; }
 button {
     padding: 11px;
-    flex: 1;
+    width: 100%;
     color: white;
     border: none;
     border-radius: 7px;
     font-size: 15px;
     cursor: pointer;
+    margin-top: 5px;
 }
-.btn-bolla     { background: #2980b9; }
-.btn-bolla:hover { background: #1a6fa0; }
-.btn-conteggio { background: #8e44ad; }
-.btn-conteggio:hover { background: #6c3483; }
-.msg-ok  { background: #d4edda; color: #155724; padding: 12px; border-radius: 7px; margin-bottom: 15px; font-weight: bold; max-width: 860px; }
+.btn-consegna  { background: #27ae60; }
+.btn-consegna:hover  { background: #1e8449; }
+.btn-continua  { background: #2c3e50; }
+.btn-continua:hover  { background: #1a252f; }
 .msg-err { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 7px; margin-bottom: 15px; font-weight: bold; max-width: 860px; }
 table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
 th { text-align: left; padding: 9px 10px; background: #f0f0f0; color: #444; font-size: 14px; }
@@ -55,11 +54,7 @@ label { font-weight: bold; color: #444; }
 <a class="back" href="/">← Home</a>
 
 {% if msg %}
-    {% if "Generato" in msg or "Generata" in msg %}
-    <div class="msg-ok">✅ {{ msg }}</div>
-    {% else %}
-    <div class="msg-err">⚠️ {{ msg }}</div>
-    {% endif %}
+<div class="msg-err">⚠️ {{ msg }}</div>
 {% endif %}
 
 <!-- GIACENZE -->
@@ -83,12 +78,12 @@ label { font-weight: bold; color: #444; }
     {% endif %}
 </div>
 
-<!-- SELEZIONE CLIENTE -->
+<!-- FORM CONSEGNA -->
 <div class="box">
     <h2>🚚 Nuova Consegna</h2>
     <div class="info">
-        Inserisci le <strong>quantità in bottiglie</strong>. Il sistema scarica automaticamente il magazzino
-        e genera il file Excel da scaricare (Bolla o Conteggio).
+        Inserisci le quantità in bottiglie e clicca <strong>Esegui Consegna</strong>.<br>
+        Il magazzino verrà scalato una sola volta. Poi potrai scaricare Bolla e Conteggio quante volte vuoi.
     </div>
 
     <form method="GET" action="/consegne">
@@ -99,27 +94,19 @@ label { font-weight: bold; color: #444; }
             <option value="{{ c }}" {% if cliente_sel == c %}selected{% endif %}>{{ c }}</option>
             {% endfor %}
         </select>
-        <button type="submit" class="btn-bolla" style="margin-top:8px;">Continua</button>
+        <button type="submit" class="btn-continua">Continua</button>
     </form>
 
     {% if cliente_sel %}
     <hr style="margin:20px 0">
-    <form method="POST">
+    <form method="POST" action="/esegui_consegna">
         <input type="hidden" name="client" value="{{ cliente_sel }}">
         <h3>{{ cliente_sel }} — quantità bottiglie</h3>
         {% for p in clients[cliente_sel] %}
         <label>{{ p }}</label>
         <input type="number" name="qty_{{ loop.index0 }}" min="0" placeholder="0">
         {% endfor %}
-
-        <div class="btn-row">
-            <button type="submit" formaction="/genera_bolla" class="btn-bolla">
-                📄 Genera Bolla di Trasporto
-            </button>
-            <button type="submit" formaction="/genera_conteggio" class="btn-conteggio">
-                🧮 Genera Conteggio
-            </button>
-        </div>
+        <button type="submit" class="btn-consegna">✅ Esegui Consegna</button>
     </form>
     {% endif %}
 </div>
