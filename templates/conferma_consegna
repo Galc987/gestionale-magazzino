@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Consegna Completata</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; padding: 30px 20px; background: #f4f6f8; }
+h2 { color: #2c3e50; margin-bottom: 15px; }
+.back { display: inline-block; margin-bottom: 20px; color: #555; text-decoration: none; }
+.back:hover { color: #000; }
+.box {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    max-width: 600px;
+}
+.msg-ok { background: #d4edda; color: #155724; padding: 14px; border-radius: 7px; margin-bottom: 20px; font-weight: bold; max-width: 600px; font-size: 16px; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+th { text-align: left; padding: 9px 10px; background: #f0f0f0; color: #444; font-size: 14px; }
+td { padding: 9px 10px; border-bottom: 1px solid #eee; font-size: 15px; }
+tr:last-child td { border-bottom: none; }
+.btn-row { display: flex; gap: 12px; margin-bottom: 12px; }
+a.btn {
+    display: block;
+    flex: 1;
+    padding: 13px;
+    color: white;
+    border-radius: 7px;
+    font-size: 15px;
+    text-align: center;
+    text-decoration: none;
+    font-weight: bold;
+}
+.btn-bolla     { background: #2980b9; }
+.btn-bolla:hover { background: #1a6fa0; }
+.btn-conteggio { background: #8e44ad; }
+.btn-conteggio:hover { background: #6c3483; }
+.btn-nuova { background: #27ae60; display: block; padding: 13px; color: white; border-radius: 7px; font-size: 15px; text-align: center; text-decoration: none; font-weight: bold; }
+.btn-nuova:hover { background: #1e8449; }
+.nota { font-size: 13px; color: #777; margin-bottom: 15px; }
+</style>
+</head>
+<body>
+<a class="back" href="/">← Home</a>
+
+<div class="msg-ok">✅ Consegna eseguita — magazzino aggiornato!</div>
+
+<div class="box">
+    <h2>{{ cliente }} — Riepilogo consegna</h2>
+    <table>
+        <tr><th>Prodotto</th><th>Quantità (bt)</th></tr>
+        {% for prodotto, qty in richieste %}
+        <tr>
+            <td>{{ prodotto }}</td>
+            <td><strong>{{ qty }}</strong></td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <p class="nota">Scarica i documenti quante volte vuoi — il magazzino non verrà scalato di nuovo.</p>
+
+    <div class="btn-row">
+        <a class="btn btn-bolla" href="/download_bolla">📄 Scarica Bolla</a>
+        <a class="btn btn-conteggio" href="/download_conteggio">🧮 Scarica Conteggio</a>
+    </div>
+
+    <a class="btn-nuova" href="/consegne">🚚 Nuova Consegna</a>
+</div>
+
+</body>
+</html>
