@@ -1,11 +1,13 @@
-from flask import Flask, render_template, request, redirect, send_file
+from flask import Flask, render_template, request, redirect, send_file, session
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from openpyxl import load_workbook
 from datetime import datetime
+import json
 
 app = Flask(__name__)
+app.secret_key = "lc_wine_secret_2026"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -62,9 +64,6 @@ clients = {
     "Francesco": ["Catarratto 2L", "Chardonnay 2L", "Merlot 2L"]
 }
 
-# Mappa prodotto app -> riga nel template Excel di Roberto
-# La colonna G di quella riga contiene i fardelli (bottiglie / moltiplicatore)
-# Il moltiplicatore (bt per fardello) è già nelle formule del template
 ROBERTO_RIGHE = {
     "Catarratto 2L": 23,
     "Rosato 2L":     25,
@@ -287,14 +286,27 @@ def consegne():
 
 
 # --------------------------------------------------
-# FUNZIONE INTERNA: scarica magazzino e genera Excel
+# ESEGUI CONSEGNA — scala magazzino UNA VOLTA SOLA
+# poi salva i dati in sessione per generare i doc
 # --------------------------------------------------
-def _esegui_consegna_db(cliente, richieste, tipo_storico, cur):
-    """
-    Scala il magazzino e registra nello storico.
-    richieste: lista di (prodotto, qty_bottiglie)
-    Ritorna errore stringa o None se ok.
-    """
+@app.route("/esegui_consegna", methods=["POST"])
+def esegui_consegna():
+    cliente = request.form["client"]
+
+    richieste = []
+    for i, prodotto in enumerate(clients[cliente]):
+        qty = request.form.get(f"qty_{i}")
+        if qty and qty.isdigit():
+            q = int(qty)
+            if q > 0:
+                richieste.append((prodotto, q))
+
+    if not richieste:
+        return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
+
+    conn = db()
+    cur = conn.cursor()
+
     # Controllo disponibilita
     for prodotto, q in richieste:
         cur.execute(
@@ -303,11 +315,15 @@ def _esegui_consegna_db(cliente, richieste, tipo_storico, cur):
         )
         row = cur.fetchone()
         if not row:
-            return prodotto + " non presente in magazzino"
+            cur.close()
+            conn.close()
+            return redirect("/consegne?msg=" + prodotto + " non presente&cliente=" + cliente)
         if row["qty"] < q:
-            return prodotto + " quantita insufficiente"
+            cur.close()
+            conn.close()
+            return redirect("/consegne?msg=" + prodotto + " quantita insufficiente&cliente=" + cliente)
 
-    # Scarico
+    # Scarico magazzino — UNA VOLTA SOLA
     for prodotto, q in richieste:
         cur.execute(
             "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
@@ -321,21 +337,44 @@ def _esegui_consegna_db(cliente, richieste, tipo_storico, cur):
             cur.execute("UPDATE stock SET qty=%s WHERE id=%s", (nuova, row["id"]))
         cur.execute(
             "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
-            (cliente, prodotto, q, tipo_storico)
+            (cliente, prodotto, q, "Consegna")
         )
-    return None
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    # Salva in sessione i dati per generare i documenti
+    session["consegna_cliente"]  = cliente
+    session["consegna_richieste"] = json.dumps(richieste)
+
+    return redirect("/conferma_consegna")
 
 
+# --------------------------------------------------
+# PAGINA CONFERMA — scarica bolla e/o conteggio
+# --------------------------------------------------
+@app.route("/conferma_consegna")
+def conferma_consegna():
+    cliente   = session.get("consegna_cliente", "")
+    richieste = json.loads(session.get("consegna_richieste", "[]"))
+
+    if not cliente or not richieste:
+        return redirect("/consegne?msg=Nessuna consegna attiva")
+
+    return render_template(
+        "conferma_consegna.html",
+        cliente=cliente,
+        richieste=richieste
+    )
+
+
+# --------------------------------------------------
+# FUNZIONE INTERNA: aggiorna fardelli nel template
+# --------------------------------------------------
 def _aggiorna_template_roberto(ws, richieste):
-    """
-    Azzera tutti i fardelli nel template e inserisce quelli della consegna.
-    IMPORTANTE: scrive solo nella colonna G che e' la cella top-left dei merge.
-    """
-    # Azzera tutte le righe prodotto
     for riga in [23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47]:
         ws[f"G{riga}"] = 0
-
-    # Inserisce fardelli per i prodotti della consegna
     for prodotto, qty_bt in richieste:
         if prodotto in ROBERTO_RIGHE:
             riga = ROBERTO_RIGHE[prodotto]
@@ -344,53 +383,26 @@ def _aggiorna_template_roberto(ws, richieste):
 
 
 # --------------------------------------------------
-# GENERA BOLLA
+# DOWNLOAD BOLLA (no scarico magazzino)
 # --------------------------------------------------
-@app.route("/genera_bolla", methods=["POST"])
-def genera_bolla():
-    cliente = request.form["client"]
+@app.route("/download_bolla")
+def download_bolla():
+    cliente   = session.get("consegna_cliente", "")
+    richieste = json.loads(session.get("consegna_richieste", "[]"))
 
-    richieste = []
-    for i, prodotto in enumerate(clients[cliente]):
-        qty = request.form.get(f"qty_{i}")
-        if qty and qty.isdigit():
-            q = int(qty)
-            if q > 0:
-                richieste.append((prodotto, q))
-
-    if not richieste:
-        return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
-
-    if cliente != "Roberto":
-        return redirect("/consegne?msg=Bolla disponibile solo per Roberto&cliente=" + cliente)
+    if not cliente or not richieste:
+        return redirect("/consegne?msg=Nessuna consegna attiva")
 
     file_modello = os.path.join(MODELLI_DIR, "bolla_roberto.xlsx")
     if not os.path.exists(file_modello):
-        return redirect("/consegne?msg=File modello bolla mancante&cliente=" + cliente)
+        return redirect("/conferma_consegna?msg=File modello bolla mancante")
 
-    conn = db()
-    cur = conn.cursor()
-    errore = _esegui_consegna_db(cliente, richieste, "Bolla Generata", cur)
-    if errore:
-        cur.close()
-        conn.close()
-        return redirect("/consegne?msg=" + errore + "&cliente=" + cliente)
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    # Genera file Excel
     wb = load_workbook(file_modello)
     ws = wb.active
 
-    # Lascia vuoti numero e data (scritti a penna)
-    # H2 e' la cella top-left del merge H2:K5
-    ws["H2"] = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
-
-    # Data ritiro vuota — F55 e' top-left di F55:G58
+    ws["H2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
     ws["F55"] = "DATA RITIRO\n\n\n"
 
-    # Aggiorna fardelli
     _aggiorna_template_roberto(ws, richieste)
 
     output = os.path.join(BASE_DIR, "bolla_generata.xlsx")
@@ -400,52 +412,26 @@ def genera_bolla():
 
 
 # --------------------------------------------------
-# GENERA CONTEGGIO
+# DOWNLOAD CONTEGGIO (no scarico magazzino)
 # --------------------------------------------------
-@app.route("/genera_conteggio", methods=["POST"])
-def genera_conteggio():
-    cliente = request.form["client"]
+@app.route("/download_conteggio")
+def download_conteggio():
+    cliente   = session.get("consegna_cliente", "")
+    richieste = json.loads(session.get("consegna_richieste", "[]"))
 
-    richieste = []
-    for i, prodotto in enumerate(clients[cliente]):
-        qty = request.form.get(f"qty_{i}")
-        if qty and qty.isdigit():
-            q = int(qty)
-            if q > 0:
-                richieste.append((prodotto, q))
-
-    if not richieste:
-        return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
-
-    if cliente != "Roberto":
-        return redirect("/consegne?msg=Conteggio disponibile solo per Roberto&cliente=" + cliente)
+    if not cliente or not richieste:
+        return redirect("/consegne?msg=Nessuna consegna attiva")
 
     file_modello = os.path.join(MODELLI_DIR, "conteggio_roberto.xlsx")
     if not os.path.exists(file_modello):
-        return redirect("/consegne?msg=File modello conteggio mancante&cliente=" + cliente)
+        return redirect("/conferma_consegna?msg=File modello conteggio mancante")
 
-    conn = db()
-    cur = conn.cursor()
-    errore = _esegui_consegna_db(cliente, richieste, "Conteggio Generato", cur)
-    if errore:
-        cur.close()
-        conn.close()
-        return redirect("/consegne?msg=" + errore + "&cliente=" + cliente)
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    # Genera file Excel
     wb = load_workbook(file_modello)
     ws = wb.active
 
-    # G2 e' top-left del merge nel conteggio
-    ws["G2"] = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
-
-    # Data ritiro vuota — F53 e' top-left di F53:G56 nel conteggio
+    ws["G2"]  = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
     ws["F53"] = "DATA RITIRO\n\n\n"
 
-    # Aggiorna fardelli (stessa logica, stesse righe)
     _aggiorna_template_roberto(ws, richieste)
 
     output = os.path.join(BASE_DIR, "conteggio_generato.xlsx")
