@@ -3,7 +3,6 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from openpyxl import load_workbook
-from datetime import datetime
 import json
 
 app = Flask(__name__)
@@ -12,6 +11,10 @@ app.secret_key = "lc_wine_secret_2026"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 MODELLI_DIR  = os.path.join(BASE_DIR, "modelli")
+
+# Bottiglie per pedana
+BT_PER_PEDANA_2L = 889
+BT_PER_PEDANA_1L = 1344
 
 
 def db():
@@ -40,9 +43,19 @@ def init_db():
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS note (
-            id SERIAL PRIMARY KEY,
-            testo TEXT,
-            data TIMESTAMP DEFAULT NOW()
+            id SERIAL PRIMARY KEY, testo TEXT, data TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS materie_prime (
+            id SERIAL PRIMARY KEY, cliente TEXT, materiale TEXT,
+            qty INTEGER DEFAULT 0, soglia_minima INTEGER DEFAULT 0
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS storico_mp (
+            id SERIAL PRIMARY KEY, cliente TEXT, materiale TEXT,
+            qty INTEGER, tipo TEXT, data TIMESTAMP DEFAULT NOW()
         )
     """)
     conn.commit()
@@ -53,8 +66,6 @@ init_db()
 
 # ==================================================
 # CONFIGURAZIONE CLIENTI
-# L'utente inserisce FARDELLI — internamente
-# convertiamo in bottiglie (fardelli x moltiplicatore)
 # ==================================================
 
 clients = {
@@ -87,7 +98,6 @@ clients = {
     ],
 }
 
-# Moltiplicatore fardello->bottiglie per ogni prodotto di ogni cliente
 MOLTIPLICATORI = {
     "Roberto": {
         "Catarratto 2L": 6,  "Rosato 2L": 6,      "Merlot 2L": 6,
@@ -97,17 +107,17 @@ MOLTIPLICATORI = {
         "Rosso S.E. 1L": 16,
     },
     "Francesco": {
-        "Catarratto 2L": 6,  "Chardonnay 2L": 6,  "Rosato 2L": 6,
-        "Merlot 2L": 6,      "Syrah 2L": 6,
+        "Catarratto 2L": 6, "Chardonnay 2L": 6, "Rosato 2L": 6,
+        "Merlot 2L": 6,     "Syrah 2L": 6,
         "Catarratto 1L": 12, "Syrah 1L": 12,
     },
     "Emanuele": {
-        "Catarratto 2L": 9,      "Rosato 2L": 9,          "Il Nero 2L": 9,
-        "Merlot 2L": 9,          "Vino Rosso 2L": 9,       "Syrah 2L": 9,
-        "Bianco S.E. 2L": 9,     "Rosato S.E. 2L": 9,      "Rosso S.E. 2L": 9,
-        "Catarratto R.B. 2L": 9, "Rosato R.B. 2L": 9,      "Il Nero R.B. 2L": 9,
-        "Vino Rosso R.B. 2L": 9, "Catarratto 1L": 16,      "Rosato 1L": 16,
-        "Il Nero 1L": 16,        "Bianco S.E. 1L": 16,     "Rosato S.E. 1L": 16,
+        "Catarratto 2L": 9,      "Rosato 2L": 9,      "Il Nero 2L": 9,
+        "Merlot 2L": 9,          "Vino Rosso 2L": 9,  "Syrah 2L": 9,
+        "Bianco S.E. 2L": 9,     "Rosato S.E. 2L": 9, "Rosso S.E. 2L": 9,
+        "Catarratto R.B. 2L": 9, "Rosato R.B. 2L": 9, "Il Nero R.B. 2L": 9,
+        "Vino Rosso R.B. 2L": 9, "Catarratto 1L": 16, "Rosato 1L": 16,
+        "Il Nero 1L": 16,        "Bianco S.E. 1L": 16,"Rosato S.E. 1L": 16,
         "Rosso S.E. 1L": 16,
     },
     "Mazzarrone": {
@@ -124,6 +134,15 @@ MOLTIPLICATORI = {
         "Bianco 2L": 6, "Rosso 2L": 6,
     },
 }
+
+# Materie prime per cliente
+def _build_materie(cliente):
+    mp = ["Bottiglie 2L vuote", "Bottiglie 1L vuote"]
+    for p in clients[cliente]:
+        mp.append(f"Etichetta {p}")
+    return mp
+
+MATERIE_PRIME_CLIENTI = {c: _build_materie(c) for c in clients}
 
 CLIENTI_CONFIG = {
     "Roberto": {
@@ -153,21 +172,21 @@ CLIENTI_CONFIG = {
     "Emanuele": {
         "bolla": "bolla_emanuele.xlsx", "conteggio": "conteggio_emanuele.xlsx",
         "prodotti_bolla": {
-            "Catarratto 2L": 21,      "Rosato 2L": 23,         "Il Nero 2L": 25,
-            "Vino Rosso 2L": 27,      "Syrah 2L": 29,           "Merlot 2L": 31,
-            "Catarratto 1L": 33,      "Rosato 1L": 35,          "Il Nero 1L": 37,
-            "Catarratto R.B. 2L": 41, "Rosato R.B. 2L": 43,    "Il Nero R.B. 2L": 45,
-            "Vino Rosso R.B. 2L": 47, "Bianco S.E. 2L": 51,    "Rosato S.E. 2L": 53,
-            "Rosso S.E. 2L": 55,      "Bianco S.E. 1L": 57,    "Rosato S.E. 1L": 59,
+            "Catarratto 2L": 21,      "Rosato 2L": 23,      "Il Nero 2L": 25,
+            "Vino Rosso 2L": 27,      "Syrah 2L": 29,       "Merlot 2L": 31,
+            "Catarratto 1L": 33,      "Rosato 1L": 35,      "Il Nero 1L": 37,
+            "Catarratto R.B. 2L": 41, "Rosato R.B. 2L": 43, "Il Nero R.B. 2L": 45,
+            "Vino Rosso R.B. 2L": 47, "Bianco S.E. 2L": 51, "Rosato S.E. 2L": 53,
+            "Rosso S.E. 2L": 55,      "Bianco S.E. 1L": 57, "Rosato S.E. 1L": 59,
             "Rosso S.E. 1L": 61,
         },
         "prodotti_conteggio": {
-            "Catarratto 2L": 25,      "Rosato 2L": 27,          "Il Nero 2L": 29,
-            "Vino Rosso 2L": 31,      "Syrah 2L": 33,           "Merlot 2L": 35,
-            "Catarratto 1L": 37,      "Rosato 1L": 39,          "Il Nero 1L": 41,
-            "Catarratto R.B. 2L": 45, "Rosato R.B. 2L": 47,    "Il Nero R.B. 2L": 49,
-            "Vino Rosso R.B. 2L": 51, "Bianco S.E. 2L": 55,    "Rosato S.E. 2L": 57,
-            "Rosso S.E. 2L": 59,      "Bianco S.E. 1L": 61,    "Rosato S.E. 1L": 63,
+            "Catarratto 2L": 25,      "Rosato 2L": 27,      "Il Nero 2L": 29,
+            "Vino Rosso 2L": 31,      "Syrah 2L": 33,       "Merlot 2L": 35,
+            "Catarratto 1L": 37,      "Rosato 1L": 39,      "Il Nero 1L": 41,
+            "Catarratto R.B. 2L": 45, "Rosato R.B. 2L": 47, "Il Nero R.B. 2L": 49,
+            "Vino Rosso R.B. 2L": 51, "Bianco S.E. 2L": 55, "Rosato S.E. 2L": 57,
+            "Rosso S.E. 2L": 59,      "Bianco S.E. 1L": 61, "Rosato S.E. 1L": 63,
             "Rosso S.E. 1L": 65,
         },
         "righe_az_bolla":     [21,23,25,27,29,31,33,35,37,41,43,45,47,51,53,55,57,59,61],
@@ -176,14 +195,12 @@ CLIENTI_CONFIG = {
         "cella_titolo_conteggio": "H2", "cella_data_conteggio": "F71",
     },
     "Mazzarrone": {
-        "bolla": None, "conteggio": None, "prodotti": {},
-        "righe_az": [],
+        "bolla": None, "conteggio": None, "prodotti": {}, "righe_az": [],
         "cella_titolo_bolla": None, "cella_data_bolla": None,
         "cella_titolo_conteggio": None, "cella_data_conteggio": None,
     },
     "Sisa": {
-        "bolla": None, "conteggio": None, "prodotti": {},
-        "righe_az": [],
+        "bolla": None, "conteggio": None, "prodotti": {}, "righe_az": [],
         "cella_titolo_bolla": None, "cella_data_bolla": None,
         "cella_titolo_conteggio": None, "cella_data_conteggio": None,
     },
@@ -195,19 +212,15 @@ CLIENTI_CONFIG = {
 # ==================================================
 
 def _aggiorna_excel(ws, cliente, richieste_fardelli, tipo="bolla"):
-    """richieste_fardelli: lista di (prodotto, fardelli)"""
     cfg = CLIENTI_CONFIG[cliente]
-
     if cliente == "Emanuele":
         mappa    = cfg["prodotti_bolla"] if tipo == "bolla" else cfg["prodotti_conteggio"]
         righe_az = cfg["righe_az_bolla"] if tipo == "bolla" else cfg["righe_az_conteggio"]
     else:
         mappa    = cfg.get("prodotti", {})
         righe_az = cfg.get("righe_az", [])
-
     for riga in righe_az:
         ws[f"G{riga}"] = 0
-
     for prodotto, fardelli in richieste_fardelli:
         if prodotto in mappa:
             ws[f"G{mappa[prodotto]}"] = fardelli
@@ -216,40 +229,27 @@ def _aggiorna_excel(ws, cliente, richieste_fardelli, tipo="bolla"):
 def _genera_file(cliente, richieste_fardelli, tipo):
     cfg = CLIENTI_CONFIG[cliente]
     nome_modello = cfg["bolla"] if tipo == "bolla" else cfg["conteggio"]
-
     if not nome_modello:
         return None, "Modello non ancora disponibile per questo cliente"
-
     file_modello = os.path.join(MODELLI_DIR, nome_modello)
     if not os.path.exists(file_modello):
         return None, f"File modello mancante: {nome_modello}"
-
     wb = load_workbook(file_modello)
     ws = wb.active
-
     cella_titolo = cfg[f"cella_titolo_{tipo}"]
     cella_data   = cfg[f"cella_data_{tipo}"]
     if cella_titolo:
         ws[cella_titolo] = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
     if cella_data:
         ws[cella_data] = "DATA RITIRO\n\n\n"
-
     _aggiorna_excel(ws, cliente, richieste_fardelli, tipo)
-
-    nome_out = f"{tipo}_generato_{cliente.lower()}.xlsx"
-    output   = os.path.join(BASE_DIR, nome_out)
+    output = os.path.join(BASE_DIR, f"{tipo}_generato_{cliente.lower()}.xlsx")
     wb.save(output)
     return output, None
 
 
 def _leggi_richieste_fardelli(cliente, form):
-    """
-    Legge dal form i fardelli inseriti dall'utente.
-    Ritorna lista di (prodotto, fardelli) — fardelli è già l'unità giusta per Excel.
-    Salva anche in sessione i fardelli (non le bottiglie).
-    """
     richieste = []
-    molt = MOLTIPLICATORI.get(cliente, {})
     for i, prodotto in enumerate(clients[cliente]):
         val = form.get(f"qty_{i}")
         if val and val.isdigit():
@@ -260,9 +260,72 @@ def _leggi_richieste_fardelli(cliente, form):
 
 
 def _fardelli_a_bottiglie(cliente, richieste_fardelli):
-    """Converte lista (prodotto, fardelli) in (prodotto, bottiglie) per il magazzino."""
     molt = MOLTIPLICATORI.get(cliente, {})
     return [(p, f * molt.get(p, 1)) for p, f in richieste_fardelli]
+
+
+def _is_2L(prodotto):
+    return "2L" in prodotto or "2l" in prodotto
+
+def _is_1L(prodotto):
+    return "1L" in prodotto or "1l" in prodotto
+
+
+def _scarico_automatico_bottiglie(cur, cliente, prodotti_bottiglie):
+    """
+    Scarica automaticamente bottiglie vuote ed etichette quando la produzione
+    passa a magazzino. prodotti_bottiglie = [(prodotto, qty_bt), ...]
+    """
+    # --- Bottiglie vuote aggregate per formato ---
+    bt2L = sum(q for p, q in prodotti_bottiglie if _is_2L(p))
+    bt1L = sum(q for p, q in prodotti_bottiglie if _is_1L(p))
+
+    for materiale, qty_usate in [("Bottiglie 2L vuote", bt2L), ("Bottiglie 1L vuote", bt1L)]:
+        if qty_usate <= 0:
+            continue
+        cur.execute(
+            "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
+            (cliente, materiale)
+        )
+        row = cur.fetchone()
+        if row and row["qty"] >= qty_usate:
+            cur.execute("UPDATE materie_prime SET qty=%s WHERE id=%s",
+                        (row["qty"] - qty_usate, row["id"]))
+            cur.execute(
+                "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
+                (cliente, materiale, qty_usate, "Scarico automatico produzione")
+            )
+
+    # --- Etichette: una per bottiglia per ogni prodotto ---
+    for prodotto, qty_bt in prodotti_bottiglie:
+        materiale = f"Etichetta {prodotto}"
+        cur.execute(
+            "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
+            (cliente, materiale)
+        )
+        row = cur.fetchone()
+        if row and row["qty"] >= qty_bt:
+            cur.execute("UPDATE materie_prime SET qty=%s WHERE id=%s",
+                        (row["qty"] - qty_bt, row["id"]))
+            cur.execute(
+                "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
+                (cliente, materiale, qty_bt, "Scarico automatico produzione")
+            )
+
+
+def _conta_alert_mp():
+    try:
+        conn = db()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) as n FROM materie_prime WHERE qty <= soglia_minima AND soglia_minima > 0"
+        )
+        n = cur.fetchone()["n"]
+        cur.close()
+        conn.close()
+        return n
+    except:
+        return 0
 
 
 # ==================================================
@@ -270,7 +333,7 @@ def _fardelli_a_bottiglie(cliente, richieste_fardelli):
 # ==================================================
 @app.route("/")
 def home():
-    return render_template("home.html")
+    return render_template("home.html", alert_mp=_conta_alert_mp())
 
 
 # ==================================================
@@ -300,7 +363,8 @@ def produzione():
     note = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template("produzione.html", clients=clients, rows=righe, note=note)
+    return render_template("produzione.html", clients=clients, rows=righe,
+                           note=note, moltiplicatori=MOLTIPLICATORI)
 
 
 @app.route("/nuova_produzione", methods=["POST"])
@@ -349,6 +413,12 @@ def passa_magazzino():
     cur = conn.cursor()
     cur.execute("SELECT * FROM produzione WHERE done=1")
     finiti = cur.fetchall()
+
+    # Raggruppa per cliente per lo scarico bottiglie
+    per_cliente = {}
+    for r in finiti:
+        per_cliente.setdefault(r["cliente"], []).append((r["prodotto"], r["qty"]))
+
     for r in finiti:
         cur.execute(
             "SELECT * FROM stock WHERE cliente=%s AND prodotto=%s",
@@ -366,13 +436,17 @@ def passa_magazzino():
             (r["cliente"], r["prodotto"], r["qty"], "Passato a Magazzino")
         )
         cur.execute("DELETE FROM produzione WHERE id=%s", (r["id"],))
+
+    # Scarico automatico bottiglie vuote per cliente
+    for cliente, prodotti_bt in per_cliente.items():
+        _scarico_automatico_bottiglie(cur, cliente, prodotti_bt)
+
     conn.commit()
     cur.close()
     conn.close()
     return redirect("/produzione")
 
 
-# NOTE PRODUZIONE
 @app.route("/aggiungi_nota", methods=["POST"])
 def aggiungi_nota():
     testo = request.form.get("testo", "").strip()
@@ -398,7 +472,7 @@ def elimina_nota(id):
 
 
 # ==================================================
-# MAGAZZINO
+# MAGAZZINO PRODOTTI FINITI
 # ==================================================
 @app.route("/magazzino")
 def magazzino():
@@ -407,14 +481,38 @@ def magazzino():
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM stock WHERE qty > 0 ORDER BY cliente, prodotto")
-    rows = cur.fetchall()
+    stock_rows = cur.fetchall()
+    cur.execute("SELECT * FROM materie_prime ORDER BY cliente, materiale")
+    mp_rows = cur.fetchall()
     cur.close()
     conn.close()
+
+    # Stock prodotti finiti per cliente
     grouped = {}
-    for r in rows:
+    for r in stock_rows:
         grouped.setdefault(r["cliente"], []).append(r)
-    return render_template("magazzino.html", grouped=grouped, clients=clients,
-                           msg=msg, cliente_sel=cliente_sel)
+
+    # Materie prime per cliente + alert
+    grouped_mp = {}
+    alert_mp = []
+    for r in mp_rows:
+        grouped_mp.setdefault(r["cliente"], []).append(r)
+        if r["soglia_minima"] > 0 and r["qty"] <= r["soglia_minima"]:
+            alert_mp.append(r)
+
+    return render_template(
+        "magazzino.html",
+        grouped=grouped,
+        grouped_mp=grouped_mp,
+        alert_mp=alert_mp,
+        clients=clients,
+        materie_clienti=MATERIE_PRIME_CLIENTI,
+        msg=msg,
+        cliente_sel=cliente_sel,
+        moltiplicatori=MOLTIPLICATORI,
+        bt_pedana_2l=BT_PER_PEDANA_2L,
+        bt_pedana_1l=BT_PER_PEDANA_1L,
+    )
 
 
 @app.route("/scarica", methods=["POST"])
@@ -457,6 +555,115 @@ def scarica():
     cur.close()
     conn.close()
     return redirect("/magazzino?msg=Scarico completato&cliente=" + cliente)
+
+
+# Materie prime: inizializza, carico, scarico, soglia
+@app.route("/init_materie_prime")
+def init_materie_prime():
+    conn = db()
+    cur = conn.cursor()
+    for cliente, materiali in MATERIE_PRIME_CLIENTI.items():
+        for materiale in materiali:
+            cur.execute(
+                "SELECT id FROM materie_prime WHERE cliente=%s AND materiale=%s",
+                (cliente, materiale)
+            )
+            if not cur.fetchone():
+                cur.execute(
+                    "INSERT INTO materie_prime(cliente, materiale, qty, soglia_minima) VALUES(%s,%s,0,0)",
+                    (cliente, materiale)
+                )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect("/magazzino?msg=Materie prime inizializzate")
+
+
+@app.route("/carico_mp", methods=["POST"])
+def carico_mp():
+    cliente   = request.form["cliente"]
+    materiale = request.form["materiale"]
+    val       = request.form.get("qty", "0")
+    unita     = request.form.get("unita", "pezzi")  # "pedane" o "pezzi"
+    if not val.isdigit() or int(val) <= 0:
+        return redirect("/magazzino?msg=Quantita non valida&cliente=" + cliente)
+    q = int(val)
+    # Converti pedane in bottiglie se necessario
+    if unita == "pedane":
+        if "2L" in materiale:
+            q = q * BT_PER_PEDANA_2L
+        elif "1L" in materiale:
+            q = q * BT_PER_PEDANA_1L
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
+        (cliente, materiale)
+    )
+    row = cur.fetchone()
+    if row:
+        cur.execute("UPDATE materie_prime SET qty=%s WHERE id=%s", (row["qty"] + q, row["id"]))
+    else:
+        cur.execute(
+            "INSERT INTO materie_prime(cliente, materiale, qty, soglia_minima) VALUES(%s,%s,%s,0)",
+            (cliente, materiale, q)
+        )
+    cur.execute(
+        "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
+        (cliente, materiale, q, "Carico")
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect("/magazzino?msg=Carico registrato&cliente=" + cliente)
+
+
+@app.route("/scarico_mp", methods=["POST"])
+def scarico_mp():
+    cliente   = request.form["cliente"]
+    materiale = request.form["materiale"]
+    val       = request.form.get("qty", "0")
+    if not val.isdigit() or int(val) <= 0:
+        return redirect("/magazzino?msg=Quantita non valida&cliente=" + cliente)
+    q = int(val)
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
+        (cliente, materiale)
+    )
+    row = cur.fetchone()
+    if not row or row["qty"] < q:
+        cur.close(); conn.close()
+        return redirect("/magazzino?msg=" + materiale + " quantita insufficiente&cliente=" + cliente)
+    cur.execute("UPDATE materie_prime SET qty=%s WHERE id=%s", (row["qty"] - q, row["id"]))
+    cur.execute(
+        "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
+        (cliente, materiale, q, "Scarico")
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect("/magazzino?msg=Scarico registrato&cliente=" + cliente)
+
+
+@app.route("/set_soglia_mp", methods=["POST"])
+def set_soglia_mp():
+    cliente   = request.form["cliente"]
+    materiale = request.form["materiale"]
+    val       = request.form.get("soglia", "0")
+    if not val.isdigit():
+        return redirect("/magazzino?msg=Soglia non valida&cliente=" + cliente)
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE materie_prime SET soglia_minima=%s WHERE cliente=%s AND materiale=%s",
+        (int(val), cliente, materiale)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect("/magazzino?msg=Soglia aggiornata&cliente=" + cliente)
 
 
 # ==================================================
@@ -513,7 +720,6 @@ def esegui_consegna():
     conn.commit()
     cur.close()
     conn.close()
-    # Salva fardelli in sessione (per Excel) e bottiglie per riepilogo
     session["consegna_cliente"]   = cliente
     session["consegna_fardelli"]  = json.dumps(richieste_f)
     session["consegna_bottiglie"] = json.dumps(richieste_bt)
@@ -522,20 +728,18 @@ def esegui_consegna():
 
 @app.route("/conferma_consegna")
 def conferma_consegna():
-    cliente    = session.get("consegna_cliente", "")
+    cliente      = session.get("consegna_cliente", "")
     richieste_f  = json.loads(session.get("consegna_fardelli", "[]"))
     richieste_bt = json.loads(session.get("consegna_bottiglie", "[]"))
     if not cliente or not richieste_f:
         return redirect("/consegne?msg=Nessuna consegna attiva")
-    molt = MOLTIPLICATORI.get(cliente, {})
     return render_template("conferma_consegna.html", cliente=cliente,
-                           richieste_f=richieste_f, richieste_bt=richieste_bt,
-                           molt=molt)
+                           richieste_f=richieste_f, richieste_bt=richieste_bt)
 
 
 @app.route("/download_bolla")
 def download_bolla():
-    cliente    = session.get("consegna_cliente", "")
+    cliente     = session.get("consegna_cliente", "")
     richieste_f = json.loads(session.get("consegna_fardelli", "[]"))
     if not cliente or not richieste_f:
         return redirect("/consegne?msg=Nessuna consegna attiva")
@@ -547,7 +751,7 @@ def download_bolla():
 
 @app.route("/download_conteggio")
 def download_conteggio():
-    cliente    = session.get("consegna_cliente", "")
+    cliente     = session.get("consegna_cliente", "")
     richieste_f = json.loads(session.get("consegna_fardelli", "[]"))
     if not cliente or not richieste_f:
         return redirect("/consegne?msg=Nessuna consegna attiva")
