@@ -366,11 +366,45 @@ def home():
 def storico():
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM storico ORDER BY data DESC LIMIT 300")
+    # Movimenti prodotti
+    cur.execute("SELECT * FROM storico ORDER BY data DESC LIMIT 500")
     rows = cur.fetchall()
+    # Movimenti materie prime
+    cur.execute("SELECT * FROM storico_mp ORDER BY data DESC LIMIT 300")
+    rows_mp = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template("storico.html", rows=rows)
+
+    # Raggruppa per tipo
+    produzioni   = [r for r in rows if r["tipo"] == "Produzione Inserita"]
+    a_magazzino  = [r for r in rows if r["tipo"] == "Passato a Magazzino"]
+    consegne_st  = [r for r in rows if r["tipo"] == "Consegna"]
+    scarichi_st  = [r for r in rows if r["tipo"] == "Scarico Magazzino"]
+
+    # Raggruppa produzioni per cliente
+    prod_per_cliente = {}
+    for r in produzioni:
+        prod_per_cliente.setdefault(r["cliente"], []).append(r)
+
+    mag_per_cliente = {}
+    for r in a_magazzino:
+        mag_per_cliente.setdefault(r["cliente"], []).append(r)
+
+    cons_per_cliente = {}
+    for r in consegne_st:
+        cons_per_cliente.setdefault(r["cliente"], []).append(r)
+
+    scar_per_cliente = {}
+    for r in scarichi_st:
+        scar_per_cliente.setdefault(r["cliente"], []).append(r)
+
+    return render_template("storico.html",
+        prod_per_cliente=prod_per_cliente,
+        mag_per_cliente=mag_per_cliente,
+        cons_per_cliente=cons_per_cliente,
+        scar_per_cliente=scar_per_cliente,
+        rows_mp=rows_mp,
+    )
 
 
 # ==================================================
