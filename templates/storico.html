@@ -9,69 +9,138 @@ h2 { color: #2c3e50; margin-bottom: 4px; }
 .back { display: inline-block; margin-bottom: 20px; color: #555; text-decoration: none; }
 .back:hover { color: #000; }
 
-/* Sezioni macro */
-.sezione { margin-bottom: 30px; }
+/* Filtro */
+.filtro-box {
+    background: white; border-radius: 10px; padding: 16px 20px;
+    margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+}
+.filtro-box label { font-size: 13px; font-weight: bold; color: #444; display: block; margin-bottom: 4px; }
+.btn-periodo {
+    padding: 8px 16px; border: 2px solid #ccc; border-radius: 6px;
+    background: white; color: #555; font-size: 13px; cursor: pointer;
+    font-weight: bold; transition: all .15s;
+}
+.btn-periodo.attivo { background: #2c3e50; color: white; border-color: #2c3e50; }
+.btn-periodo:hover:not(.attivo) { border-color: #2c3e50; color: #2c3e50; }
+.filtro-date { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.filtro-date input[type=date] {
+    padding: 8px; border: 2px solid #ccc; border-radius: 6px;
+    font-size: 13px; color: #444;
+}
+.btn-applica {
+    padding: 8px 16px; background: #2980b9; color: white;
+    border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold;
+}
+.periodo-label {
+    font-size: 12px; color: #888; font-style: italic; align-self: center;
+}
+
+/* Sezioni */
+.sezione { margin-bottom: 24px; }
 .sezione-titolo {
-    font-size: 18px; font-weight: bold; padding: 12px 18px;
-    border-radius: 10px 10px 0 0; color: white; margin-bottom: 0;
+    font-size: 16px; font-weight: bold; padding: 12px 18px;
+    border-radius: 10px 10px 0 0; color: white;
     display: flex; justify-content: space-between; align-items: center;
     cursor: pointer; user-select: none;
 }
-.sezione-titolo .toggle-hint { font-size: 13px; font-weight: normal; opacity: .8; }
-.s-prod    .sezione-titolo { background: #2980b9; }
-.s-mag     .sezione-titolo { background: #27ae60; }
-.s-scar    .sezione-titolo { background: #e67e22; }
-.s-cons    .sezione-titolo { background: #8e44ad; }
-.s-mp      .sezione-titolo { background: #7f8c8d; }
-
-.sezione-body { background: white; border-radius: 0 0 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.07); padding: 0; overflow: hidden; }
+.sezione-titolo .toggle-hint { font-size: 12px; font-weight: normal; opacity: .8; }
+.s-prod .sezione-titolo { background: #2980b9; }
+.s-mag  .sezione-titolo { background: #27ae60; }
+.s-scar .sezione-titolo { background: #e67e22; }
+.s-cons .sezione-titolo { background: #8e44ad; }
+.s-mp   .sezione-titolo { background: #7f8c8d; }
+.sezione-body {
+    background: white; border-radius: 0 0 10px 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07); overflow: hidden;
+}
 
 /* Griglia clienti */
-.clienti-grid { display: flex; flex-wrap: wrap; gap: 0; }
+.clienti-grid { display: flex; flex-wrap: wrap; }
 .cliente-block {
-    flex: 1; min-width: 200px;
-    border-right: 1px solid #f0f0f0;
-    padding: 14px;
+    flex: 1; min-width: 190px;
+    border-right: 1px solid #f0f0f0; padding: 14px;
 }
 .cliente-block:last-child { border-right: none; }
 .cliente-nome {
     font-size: 14px; font-weight: bold; color: #2c3e50;
-    margin-bottom: 8px; padding-bottom: 6px;
-    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid #e0e0e0;
 }
-.riga { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; gap: 8px; }
+.riga {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; gap: 6px;
+}
 .riga:last-child { border-bottom: none; }
 .riga .prodotto { color: #333; flex: 1; }
 .riga .qty { font-weight: bold; color: #2c3e50; white-space: nowrap; }
 .riga .data { font-size: 11px; color: #bbb; white-space: nowrap; }
 
-/* Materie prime: tabella semplice */
+/* Tabella MP */
 .mp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.mp-table th { text-align: left; padding: 9px 14px; background: #f5f5f5; color: #555; font-size: 13px; }
+.mp-table th { text-align: left; padding: 9px 14px; background: #f5f5f5; color: #555; }
 .mp-table td { padding: 8px 14px; border-bottom: 1px solid #f0f0f0; }
 .mp-table tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
-.b-carico { background: #d4edda; color: #155724; }
+.b-carico  { background: #d4edda; color: #155724; }
 .b-scarico { background: #fff3cd; color: #856404; }
-.b-auto   { background: #f0e6fa; color: #6c3483; }
+.b-auto    { background: #f0e6fa; color: #6c3483; }
 
-.empty { color: #aaa; font-style: italic; padding: 14px; font-size: 14px; }
+.empty { color: #aaa; font-style: italic; padding: 14px; font-size: 14px; display: block; }
 </style>
 <script>
 function toggleSezione(id) {
     var el = document.getElementById(id);
     el.style.display = el.style.display === 'none' ? '' : 'none';
 }
+function setPeriodo(p) {
+    var url = new URL(window.location.href);
+    url.searchParams.set('periodo', p);
+    url.searchParams.delete('data_da');
+    url.searchParams.delete('data_a');
+    window.location.href = url.toString();
+}
 </script>
 </head>
 <body>
 <a class="back" href="/">← Home</a>
 
-<!-- ===== PRODUZIONE INSERITA ===== -->
+<!-- FILTRO DATA -->
+<div class="filtro-box">
+    <div>
+        <label>Periodo</label>
+        <div style="display:flex; gap:6px;">
+            <button class="btn-periodo {% if periodo=='7' %}attivo{% endif %}" onclick="setPeriodo('7')">Ultimi 7 giorni</button>
+            <button class="btn-periodo {% if periodo=='30' %}attivo{% endif %}" onclick="setPeriodo('30')">Ultimi 30 giorni</button>
+            <button class="btn-periodo {% if periodo=='tutto' %}attivo{% endif %}" onclick="setPeriodo('tutto')">Tutto</button>
+        </div>
+    </div>
+
+    <div class="filtro-date">
+        <div>
+            <label>Personalizzato</label>
+            <form method="GET" action="/storico" style="display:flex; gap:6px; align-items:center;">
+                <input type="hidden" name="periodo" value="custom">
+                <input type="date" name="data_da" value="{{ data_da }}" required>
+                <span style="font-size:13px;color:#888;">→</span>
+                <input type="date" name="data_a" value="{{ data_a }}" required>
+                <button type="submit" class="btn-applica">Applica</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="periodo-label">
+        {% if periodo == '7' %}Ultimi 7 giorni
+        {% elif periodo == '30' %}Ultimi 30 giorni
+        {% elif periodo == 'custom' and data_da and data_a %}Dal {{ data_da }} al {{ data_a }}
+        {% else %}Tutto lo storico{% endif %}
+    </div>
+</div>
+
+<!-- PRODUZIONE INSERITA -->
 <div class="sezione s-prod">
     <div class="sezione-titolo" onclick="toggleSezione('body-prod')">
         🏭 Produzione Inserita
-        <span class="toggle-hint">clicca per espandere/chiudere</span>
+        <span class="toggle-hint">clicca per espandere / chiudere</span>
     </div>
     <div class="sezione-body" id="body-prod">
         {% if prod_per_cliente %}
@@ -89,17 +158,15 @@ function toggleSezione(id) {
             </div>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="empty">Nessun record.</p>
-        {% endif %}
+        {% else %}<span class="empty">Nessun record nel periodo selezionato.</span>{% endif %}
     </div>
 </div>
 
-<!-- ===== PASSATO A MAGAZZINO ===== -->
+<!-- PASSATO A MAGAZZINO -->
 <div class="sezione s-mag">
     <div class="sezione-titolo" onclick="toggleSezione('body-mag')">
         📦 Passato a Magazzino
-        <span class="toggle-hint">clicca per espandere/chiudere</span>
+        <span class="toggle-hint">clicca per espandere / chiudere</span>
     </div>
     <div class="sezione-body" id="body-mag" style="display:none">
         {% if mag_per_cliente %}
@@ -117,17 +184,15 @@ function toggleSezione(id) {
             </div>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="empty">Nessun record.</p>
-        {% endif %}
+        {% else %}<span class="empty">Nessun record nel periodo selezionato.</span>{% endif %}
     </div>
 </div>
 
-<!-- ===== SCARICO MAGAZZINO ===== -->
+<!-- SCARICO MAGAZZINO -->
 <div class="sezione s-scar">
     <div class="sezione-titolo" onclick="toggleSezione('body-scar')">
         ⬇️ Scarico Magazzino
-        <span class="toggle-hint">clicca per espandere/chiudere</span>
+        <span class="toggle-hint">clicca per espandere / chiudere</span>
     </div>
     <div class="sezione-body" id="body-scar" style="display:none">
         {% if scar_per_cliente %}
@@ -145,17 +210,15 @@ function toggleSezione(id) {
             </div>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="empty">Nessun record.</p>
-        {% endif %}
+        {% else %}<span class="empty">Nessun record nel periodo selezionato.</span>{% endif %}
     </div>
 </div>
 
-<!-- ===== CONSEGNE ===== -->
+<!-- CONSEGNE -->
 <div class="sezione s-cons">
     <div class="sezione-titolo" onclick="toggleSezione('body-cons')">
         🚚 Consegne
-        <span class="toggle-hint">clicca per espandere/chiudere</span>
+        <span class="toggle-hint">clicca per espandere / chiudere</span>
     </div>
     <div class="sezione-body" id="body-cons" style="display:none">
         {% if cons_per_cliente %}
@@ -173,24 +236,20 @@ function toggleSezione(id) {
             </div>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="empty">Nessun record.</p>
-        {% endif %}
+        {% else %}<span class="empty">Nessun record nel periodo selezionato.</span>{% endif %}
     </div>
 </div>
 
-<!-- ===== MATERIE PRIME ===== -->
+<!-- MATERIE PRIME -->
 <div class="sezione s-mp">
     <div class="sezione-titolo" onclick="toggleSezione('body-mp')">
         🧪 Materie Prime
-        <span class="toggle-hint">clicca per espandere/chiudere</span>
+        <span class="toggle-hint">clicca per espandere / chiudere</span>
     </div>
     <div class="sezione-body" id="body-mp" style="display:none">
         {% if rows_mp %}
         <table class="mp-table">
-            <tr>
-                <th>Data</th><th>Cliente</th><th>Materiale</th><th>Qtà</th><th>Tipo</th>
-            </tr>
+            <tr><th>Data</th><th>Cliente</th><th>Materiale</th><th>Qtà</th><th>Tipo</th></tr>
             {% for r in rows_mp %}
             <tr>
                 <td>{{ r.data.strftime('%d/%m/%Y %H:%M') }}</td>
@@ -209,9 +268,7 @@ function toggleSezione(id) {
             </tr>
             {% endfor %}
         </table>
-        {% else %}
-        <p class="empty">Nessun movimento materie prime.</p>
-        {% endif %}
+        {% else %}<span class="empty">Nessun movimento materie prime nel periodo selezionato.</span>{% endif %}
     </div>
 </div>
 
