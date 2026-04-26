@@ -9,106 +9,236 @@ h2 { color: #2c3e50; margin-bottom: 15px; }
 h3 { color: #555; margin-bottom: 10px; }
 .back { display: inline-block; margin-bottom: 20px; color: #555; text-decoration: none; }
 .back:hover { color: #000; }
-.box {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.07);
-}
-select, input[type=number] {
-    padding: 9px;
-    width: 100%;
-    margin: 6px 0 12px 0;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 15px;
-}
-button {
-    padding: 11px;
-    width: 100%;
-    background: #2c3e50;
-    color: white;
-    border: none;
-    border-radius: 7px;
-    font-size: 15px;
-    cursor: pointer;
-    margin-top: 5px;
-}
-button:hover { background: #1a252f; }
-.msg-ok { background: #d4edda; color: #155724; padding: 12px; border-radius: 7px; margin-bottom: 15px; font-weight: bold; }
+.box { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+select, input[type=number] { padding: 9px; width: 100%; margin: 6px 0 10px 0; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+button { padding: 10px; width: 100%; color: white; border: none; border-radius: 7px; font-size: 14px; cursor: pointer; margin-top: 4px; }
+button:hover { opacity: 0.88; }
+.btn-dark    { background: #2c3e50; }
+.btn-carico  { background: #27ae60; }
+.btn-scarico { background: #e74c3c; }
+.btn-soglia  { background: #8e44ad; }
+.btn-init    { background: #7f8c8d; }
+
+/* Alert */
+.alert-box { background: #fff3cd; border-left: 4px solid #f39c12; border-radius: 7px; padding: 14px; margin-bottom: 20px; }
+.alert-box h3 { color: #856404; margin-bottom: 8px; }
+.alert-item { font-size: 14px; color: #856404; padding: 3px 0; }
+.msg-ok  { background: #d4edda; color: #155724; padding: 12px; border-radius: 7px; margin-bottom: 15px; font-weight: bold; }
 .msg-err { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 7px; margin-bottom: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-th { text-align: left; padding: 9px 10px; background: #f0f0f0; color: #444; font-size: 14px; }
-td { padding: 9px 10px; border-bottom: 1px solid #eee; font-size: 15px; }
-tr:last-child td { border-bottom: none; }
-.cliente-titolo { font-size: 18px; font-weight: bold; color: #2c3e50; margin: 15px 0 8px 0; }
-.empty { color: #aaa; font-style: italic; }
-label { font-weight: bold; color: #444; }
+
+/* Griglia clienti affiancati */
+.clienti-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+.cliente-card { background: #f9f9f9; border-radius: 8px; padding: 14px; min-width: 220px; flex: 1; }
+.cliente-nome { font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; border-bottom: 2px solid #2c3e50; padding-bottom: 6px; }
+.prod-riga { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+.prod-riga:last-child { border-bottom: none; }
+.prod-nome { color: #333; }
+.badge-f { background: #eaf4fb; color: #2980b9; padding: 2px 7px; border-radius: 8px; font-size: 12px; font-weight: bold; }
+.badge-bt { background: #f0f0f0; color: #555; padding: 2px 7px; border-radius: 8px; font-size: 11px; }
+.empty { color: #aaa; font-style: italic; font-size: 14px; }
+label { font-weight: bold; color: #444; font-size: 14px; }
+.hint { font-size: 12px; color: #888; font-weight: normal; margin-left: 5px; }
+hr { border: none; border-top: 1px solid #eee; margin: 16px 0; }
+
+/* Materie prime */
+.mp-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+.mp-card { background: #f9f9f9; border-radius: 8px; padding: 14px; min-width: 260px; flex: 1; }
+.mp-nome { font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; border-bottom: 2px solid #8e44ad; padding-bottom: 6px; }
+.mp-riga { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+.mp-riga:last-child { border-bottom: none; }
+.mp-riga.warn { background: #fff3cd; border-radius: 4px; padding: 5px 6px; }
+.qty-ok   { color: #27ae60; font-weight: bold; }
+.qty-warn { color: #e74c3c; font-weight: bold; }
+.pedane-info { font-size: 11px; color: #888; }
+
+/* Form azioni MP inline */
+.azioni-mp { background: white; border: 1px solid #eee; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.azioni-mp h4 { font-size: 14px; color: #444; margin-bottom: 10px; }
+.form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.form-row input[type=number] { width: 90px; margin: 0; padding: 7px; }
+.form-row select { width: 110px; margin: 0; padding: 7px; font-size: 13px; }
+.form-row button { width: auto; padding: 7px 14px; font-size: 13px; margin: 0; }
+.form-row label { font-weight: normal; font-size: 13px; color: #555; min-width: 120px; }
 </style>
 </head>
 <body>
 <a class="back" href="/">← Home</a>
 
 {% if msg %}
-    {% if "completato" in msg %}
+    {% if "completato" in msg or "registrato" in msg or "aggiornata" in msg or "inizializzate" in msg %}
     <div class="msg-ok">✅ {{ msg }}</div>
     {% else %}
     <div class="msg-err">⚠️ {{ msg }}</div>
     {% endif %}
 {% endif %}
 
-<div class="box">
-    <h2>📦 Giacenze Magazzino</h2>
+<!-- ALERT SCORTE BASSE -->
+{% if alert_mp %}
+<div class="alert-box">
+    <h3>⚠️ Scorte materie prime sotto soglia — effettua un ordine!</h3>
+    {% for a in alert_mp %}
+    <div class="alert-item">🔴 <strong>{{ a.cliente }}</strong> — {{ a.materiale }}: <strong>{{ a.qty }}</strong> (soglia: {{ a.soglia_minima }})</div>
+    {% endfor %}
+</div>
+{% endif %}
 
+<!-- ===== GIACENZE PRODOTTI FINITI ===== -->
+<div class="box">
+    <h2>📦 Giacenze Magazzino — Prodotti Finiti</h2>
     {% if grouped %}
+    <div class="clienti-grid">
         {% for cliente, prodotti in grouped.items() %}
-        <div class="cliente-titolo">{{ cliente }}</div>
-        <table>
-            <tr>
-                <th>Prodotto</th>
-                <th>Quantità</th>
-            </tr>
+        <div class="cliente-card">
+            <div class="cliente-nome">{{ cliente }}</div>
             {% for p in prodotti %}
-            <tr>
-                <td>{{ p.prodotto }}</td>
-                <td><strong>{{ p.qty }}</strong></td>
-            </tr>
+            {% set molt = moltiplicatori.get(cliente, {}).get(p.prodotto, 1) %}
+            {% set fardelli = (p.qty / molt) | int %}
+            <div class="prod-riga">
+                <span class="prod-nome">{{ p.prodotto }}</span>
+                <span>
+                    <span class="badge-f">{{ fardelli }} f.</span>
+                    <span class="badge-bt">{{ p.qty }} bt</span>
+                </span>
+            </div>
             {% endfor %}
-        </table>
+        </div>
         {% endfor %}
+    </div>
     {% else %}
-        <p class="empty">Magazzino vuoto.</p>
+    <p class="empty">Magazzino vuoto.</p>
     {% endif %}
 </div>
 
+<!-- SCARICO PRODOTTI FINITI -->
 <div class="box">
     <h2>⬇️ Scarico Magazzino</h2>
-
     <form method="GET" action="/magazzino">
         <label>Seleziona Cliente</label>
         <select name="cliente">
             <option value="">-- Seleziona --</option>
             {% for c in clients %}
-            <option value="{{c}}" {% if cliente_sel == c %}selected{% endif %}>
-                {{c}}
-            </option>
+            <option value="{{ c }}" {% if cliente_sel == c %}selected{% endif %}>{{ c }}</option>
             {% endfor %}
         </select>
-        <button type="submit">Continua</button>
+        <button type="submit" class="btn-dark">Continua</button>
+    </form>
+    {% if cliente_sel %}
+    <hr>
+    <form method="POST" action="/scarica">
+        <input type="hidden" name="client" value="{{ cliente_sel }}">
+        <h3>{{ cliente_sel }}</h3>
+        {% for p in clients[cliente_sel] %}
+        {% set molt = moltiplicatori.get(cliente_sel, {}).get(p, 1) %}
+        <label>{{ p }} <span class="hint">(1 fardello = {{ molt }} bt)</span></label>
+        <input type="number" name="qty_{{ loop.index0 }}" min="0" placeholder="fardelli">
+        {% endfor %}
+        <button type="submit" class="btn-dark">Scarica</button>
+    </form>
+    {% endif %}
+</div>
+
+<!-- ===== MATERIE PRIME ===== -->
+<div class="box">
+    <h2>🧪 Materie Prime</h2>
+
+    {% if not grouped_mp %}
+    <p class="empty" style="margin-bottom:14px;">Nessuna materia prima configurata.</p>
+    <a href="/init_materie_prime"><button class="btn-dark">🔧 Inizializza Materie Prime</button></a>
+
+    {% else %}
+
+    <!-- Giacenze materie prime affiancate -->
+    <div class="mp-grid" style="margin-bottom:20px;">
+        {% for cliente, materiali in grouped_mp.items() %}
+        <div class="mp-card">
+            <div class="mp-nome">{{ cliente }}</div>
+            {% for m in materiali %}
+            {% set is_warn = m.soglia_minima > 0 and m.qty <= m.soglia_minima %}
+            <div class="mp-riga {% if is_warn %}warn{% endif %}">
+                <span>{{ m.materiale }}</span>
+                <span>
+                    {% if is_warn %}
+                    <span class="qty-warn">⚠️ {{ m.qty }}</span>
+                    {% else %}
+                    <span class="qty-ok">{{ m.qty }}</span>
+                    {% endif %}
+                    {% if "2L" in m.materiale and "Bottiglie" in m.materiale %}
+                    <span class="pedane-info">({{ "%.2f"|format(m.qty / bt_pedana_2l) }} ped.)</span>
+                    {% elif "1L" in m.materiale and "Bottiglie" in m.materiale %}
+                    <span class="pedane-info">({{ "%.2f"|format(m.qty / bt_pedana_1l) }} ped.)</span>
+                    {% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr>
+    <h3>➕ Carico / ➖ Scarico / 🔔 Soglia</h3>
+
+    <!-- Selezione cliente per azioni -->
+    <form method="GET" action="/magazzino" style="margin-bottom:16px;">
+        <label>Seleziona Cliente per azioni</label>
+        <select name="cliente">
+            <option value="">-- Seleziona --</option>
+            {% for c in clients %}
+            <option value="{{ c }}" {% if cliente_sel == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="sezione" value="mp">
+        <button type="submit" class="btn-dark">Continua</button>
     </form>
 
-    {% if cliente_sel %}
-    <hr style="margin:20px 0">
-    <form method="POST" action="/scarica">
-        <input type="hidden" name="client" value="{{cliente_sel}}">
-        <h3>{{cliente_sel}}</h3>
-        {% for p in clients[cliente_sel] %}
-        <label>{{p}}</label>
-        <input type="number" name="qty_{{loop.index0}}" min="0" placeholder="0">
-        {% endfor %}
-        <button type="submit">Scarica</button>
-    </form>
+    {% if cliente_sel and cliente_sel in materie_clienti %}
+    {% for materiale in materie_clienti[cliente_sel] %}
+    <div class="azioni-mp">
+        <h4>{{ materiale }}</h4>
+
+        <!-- CARICO -->
+        <div class="form-row">
+            <label>Carico:</label>
+            <form method="POST" action="/carico_mp" style="display:flex; gap:6px; align-items:center;">
+                <input type="hidden" name="cliente" value="{{ cliente_sel }}">
+                <input type="hidden" name="materiale" value="{{ materiale }}">
+                <input type="number" name="qty" min="1" placeholder="quantità">
+                {% if "Bottiglie" in materiale %}
+                <select name="unita">
+                    <option value="pezzi">pezzi</option>
+                    <option value="pedane">pedane</option>
+                </select>
+                {% else %}
+                <input type="hidden" name="unita" value="pezzi">
+                {% endif %}
+                <button type="submit" class="btn-carico">➕ Carico</button>
+            </form>
+        </div>
+
+        <!-- SCARICO -->
+        <div class="form-row">
+            <label>Scarico:</label>
+            <form method="POST" action="/scarico_mp" style="display:flex; gap:6px; align-items:center;">
+                <input type="hidden" name="cliente" value="{{ cliente_sel }}">
+                <input type="hidden" name="materiale" value="{{ materiale }}">
+                <input type="number" name="qty" min="1" placeholder="pezzi">
+                <button type="submit" class="btn-scarico">➖ Scarico</button>
+            </form>
+        </div>
+
+        <!-- SOGLIA -->
+        <div class="form-row">
+            <label>Soglia minima:</label>
+            <form method="POST" action="/set_soglia_mp" style="display:flex; gap:6px; align-items:center;">
+                <input type="hidden" name="cliente" value="{{ cliente_sel }}">
+                <input type="hidden" name="materiale" value="{{ materiale }}">
+                <input type="number" name="soglia" min="0" placeholder="soglia">
+                <button type="submit" class="btn-soglia">🔔 Imposta</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
     {% endif %}
 </div>
 
