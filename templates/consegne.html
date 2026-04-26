@@ -10,48 +10,36 @@ h3 { color: #555; margin-bottom: 10px; }
 .back { display: inline-block; margin-bottom: 20px; color: #555; text-decoration: none; }
 .back:hover { color: #000; }
 .box {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.07);
-    max-width: 860px;
+    background: white; padding: 20px; border-radius: 10px;
+    margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.07); max-width: 860px;
 }
 select, input[type=number] {
-    padding: 9px;
-    width: 100%;
-    margin: 6px 0 12px 0;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 15px;
+    padding: 9px; width: 100%; margin: 6px 0 12px 0;
+    border: 1px solid #ccc; border-radius: 6px; font-size: 15px;
 }
 button {
-    padding: 11px;
-    width: 100%;
-    color: white;
-    border: none;
-    border-radius: 7px;
-    font-size: 15px;
-    cursor: pointer;
-    margin-top: 5px;
+    padding: 11px; width: 100%; color: white; border: none;
+    border-radius: 7px; font-size: 15px; cursor: pointer; margin-top: 5px;
 }
-.btn-consegna  { background: #27ae60; }
-.btn-consegna:hover  { background: #1e8449; }
+button:hover { opacity: 0.88; }
+.btn-consegna   { background: #27ae60; }
+.btn-continua   { background: #2c3e50; }
 .btn-solo-bolla { background: #2980b9; }
-.btn-solo-bolla:hover { background: #1a6fa0; }
-.btn-solo-conteggio { background: #8e44ad; }
-.btn-solo-conteggio:hover { background: #6c3483; }
-.btn-continua  { background: #2c3e50; }
-.btn-continua:hover  { background: #1a252f; }
-.msg-err { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 7px; margin-bottom: 15px; font-weight: bold; max-width: 860px; }
+.btn-solo-cont  { background: #8e44ad; }
+.msg-err { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 7px;
+           margin-bottom: 15px; font-weight: bold; max-width: 860px; }
 table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
 th { text-align: left; padding: 9px 10px; background: #f0f0f0; color: #444; font-size: 14px; }
 td { padding: 9px 10px; border-bottom: 1px solid #eee; font-size: 15px; }
 tr:last-child td { border-bottom: none; }
 .cliente-titolo { font-size: 17px; font-weight: bold; color: #2c3e50; margin: 12px 0 6px 0; }
 .empty { color: #aaa; font-style: italic; }
-label { font-weight: bold; color: #444; }
-.info { background: #eaf4fb; border-left: 4px solid #2980b9; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; color: #2c3e50; }
+label  { font-weight: bold; color: #444; }
+.hint  { font-size: 12px; color: #888; font-weight: normal; margin-left: 6px; }
+.info  { background: #eaf4fb; border-left: 4px solid #2980b9; padding: 12px;
+         border-radius: 6px; margin-bottom: 15px; font-size: 14px; color: #2c3e50; }
+.sep   { border: none; border-top: 1px solid #eee; margin: 15px 0; }
+.avviso { font-size: 13px; color: #888; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -68,7 +56,7 @@ label { font-weight: bold; color: #444; }
         {% for cliente, prodotti in grouped.items() %}
         <div class="cliente-titolo">{{ cliente }}</div>
         <table>
-            <tr><th>Prodotto</th><th>Quantità (bt)</th></tr>
+            <tr><th>Prodotto</th><th>Bottiglie</th></tr>
             {% for p in prodotti %}
             <tr>
                 <td>{{ p.prodotto }}</td>
@@ -86,8 +74,9 @@ label { font-weight: bold; color: #444; }
 <div class="box">
     <h2>🚚 Nuova Consegna</h2>
     <div class="info">
-        Inserisci le quantità in bottiglie e clicca <strong>Esegui Consegna</strong>.<br>
-        Il magazzino verrà scalato una sola volta. Poi potrai scaricare Bolla e Conteggio quante volte vuoi.
+        Inserisci le quantità in <strong>fardelli</strong>. Il sistema converte automaticamente
+        in bottiglie e scarica il magazzino una sola volta.<br>
+        Dopo potrai scaricare Bolla e Conteggio quante volte vuoi.
     </div>
 
     <form method="GET" action="/consegne">
@@ -102,12 +91,17 @@ label { font-weight: bold; color: #444; }
     </form>
 
     {% if cliente_sel %}
-    <hr style="margin:20px 0">
+    <hr class="sep">
     <form method="POST">
         <input type="hidden" name="client" value="{{ cliente_sel }}">
-        <h3>{{ cliente_sel }} — quantità bottiglie</h3>
+        <h3>{{ cliente_sel }} — fardelli per prodotto</h3>
+
         {% for p in clients[cliente_sel] %}
-        <label>{{ p }}</label>
+        {% set molt = moltiplicatori[cliente_sel][p] %}
+        <label>
+            {{ p }}
+            <span class="hint">(1 fardello = {{ molt }} bt)</span>
+        </label>
         <input type="number" name="qty_{{ loop.index0 }}" min="0" placeholder="0">
         {% endfor %}
 
@@ -115,15 +109,13 @@ label { font-weight: bold; color: #444; }
             ✅ Esegui Consegna (scala magazzino + genera documenti)
         </button>
 
-        <hr style="margin:15px 0; border-color:#eee;">
-        <p style="font-size:13px; color:#888; margin-bottom:10px;">
-            ⚠️ I bottoni qui sotto generano il documento <strong>senza scalare il magazzino</strong>.
-        </p>
+        <hr class="sep">
+        <p class="avviso">⚠️ I bottoni qui sotto generano il documento <strong>senza scalare il magazzino</strong>.</p>
 
         <button type="submit" formaction="/solo_bolla" class="btn-solo-bolla">
             📄 Solo Bolla (senza scalare)
         </button>
-        <button type="submit" formaction="/solo_conteggio" class="btn-solo-conteggio">
+        <button type="submit" formaction="/solo_conteggio" class="btn-solo-cont">
             🧮 Solo Conteggio (senza scalare)
         </button>
     </form>
