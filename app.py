@@ -364,46 +364,72 @@ def home():
 # ==================================================
 @app.route("/storico")
 def storico():
+    from datetime import datetime, timedelta
+
+    periodo = request.args.get("periodo", "30")
+    data_da = request.args.get("data_da", "")
+    data_a  = request.args.get("data_a", "")
+    oggi    = datetime.now().date()
+
+    if periodo == "7":
+        filtro_da = oggi - timedelta(days=7)
+        filtro_a  = oggi + timedelta(days=1)
+    elif periodo == "30":
+        filtro_da = oggi - timedelta(days=30)
+        filtro_a  = oggi + timedelta(days=1)
+    elif periodo == "custom" and data_da and data_a:
+        try:
+            filtro_da = datetime.strptime(data_da, "%Y-%m-%d").date()
+            filtro_a  = datetime.strptime(data_a, "%Y-%m-%d").date() + timedelta(days=1)
+        except:
+            filtro_da = oggi - timedelta(days=30)
+            filtro_a  = oggi + timedelta(days=1)
+    else:
+        filtro_da = None
+        filtro_a  = None
+
     conn = db()
     cur = conn.cursor()
-    # Movimenti prodotti
-    cur.execute("SELECT * FROM storico ORDER BY data DESC LIMIT 500")
-    rows = cur.fetchall()
-    # Movimenti materie prime
-    cur.execute("SELECT * FROM storico_mp ORDER BY data DESC LIMIT 300")
+
+    def fetch_per_cliente(tipo):
+        if filtro_da:
+            cur.execute(
+                "SELECT * FROM storico WHERE tipo=%s AND data>=%s AND data<%s ORDER BY data DESC",
+                (tipo, filtro_da, filtro_a)
+            )
+        else:
+            cur.execute("SELECT * FROM storico WHERE tipo=%s ORDER BY data DESC", (tipo,))
+        grouped = {}
+        for r in cur.fetchall():
+            grouped.setdefault(r["cliente"], []).append(r)
+        return grouped
+
+    prod_per_cliente = fetch_per_cliente("Produzione Inserita")
+    mag_per_cliente  = fetch_per_cliente("Passato a Magazzino")
+    scar_per_cliente = fetch_per_cliente("Scarico Magazzino")
+    cons_per_cliente = fetch_per_cliente("Consegna")
+
+    if filtro_da:
+        cur.execute(
+            "SELECT * FROM storico_mp WHERE data>=%s AND data<%s ORDER BY data DESC",
+            (filtro_da, filtro_a)
+        )
+    else:
+        cur.execute("SELECT * FROM storico_mp ORDER BY data DESC")
     rows_mp = cur.fetchall()
+
     cur.close()
     conn.close()
-
-    # Raggruppa per tipo
-    produzioni   = [r for r in rows if r["tipo"] == "Produzione Inserita"]
-    a_magazzino  = [r for r in rows if r["tipo"] == "Passato a Magazzino"]
-    consegne_st  = [r for r in rows if r["tipo"] == "Consegna"]
-    scarichi_st  = [r for r in rows if r["tipo"] == "Scarico Magazzino"]
-
-    # Raggruppa produzioni per cliente
-    prod_per_cliente = {}
-    for r in produzioni:
-        prod_per_cliente.setdefault(r["cliente"], []).append(r)
-
-    mag_per_cliente = {}
-    for r in a_magazzino:
-        mag_per_cliente.setdefault(r["cliente"], []).append(r)
-
-    cons_per_cliente = {}
-    for r in consegne_st:
-        cons_per_cliente.setdefault(r["cliente"], []).append(r)
-
-    scar_per_cliente = {}
-    for r in scarichi_st:
-        scar_per_cliente.setdefault(r["cliente"], []).append(r)
 
     return render_template("storico.html",
         prod_per_cliente=prod_per_cliente,
         mag_per_cliente=mag_per_cliente,
-        cons_per_cliente=cons_per_cliente,
         scar_per_cliente=scar_per_cliente,
+        cons_per_cliente=cons_per_cliente,
         rows_mp=rows_mp,
+        periodo=periodo,
+        data_da=data_da,
+        data_a=data_a,
     )
 
 
