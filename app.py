@@ -38,6 +38,13 @@ def init_db():
             qty INTEGER, tipo TEXT, data TIMESTAMP DEFAULT NOW()
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS note (
+            id SERIAL PRIMARY KEY,
+            testo TEXT,
+            data TIMESTAMP DEFAULT NOW()
+        )
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -46,6 +53,8 @@ init_db()
 
 # ==================================================
 # CONFIGURAZIONE CLIENTI
+# L'utente inserisce FARDELLI — internamente
+# convertiamo in bottiglie (fardelli x moltiplicatore)
 # ==================================================
 
 clients = {
@@ -78,163 +87,133 @@ clients = {
     ],
 }
 
-# --------------------------------------------------
-# MAPPA PRODOTTI -> RIGA TEMPLATE + MOLTIPLICATORE
-# (riga colonna G nel file Excel, bt per fardello)
-# --------------------------------------------------
+# Moltiplicatore fardello->bottiglie per ogni prodotto di ogni cliente
+MOLTIPLICATORI = {
+    "Roberto": {
+        "Catarratto 2L": 6,  "Rosato 2L": 6,      "Merlot 2L": 6,
+        "Il Nero 2L": 6,     "Bianco E.N. 2L": 6,  "Rosato E.N. 2L": 6,
+        "Rosso E.N. 2L": 6,  "Catarratto 1L": 12,  "Rosato 1L": 12,
+        "Merlot 1L": 12,     "Bianco S.E. 1L": 16, "Rosato S.E. 1L": 16,
+        "Rosso S.E. 1L": 16,
+    },
+    "Francesco": {
+        "Catarratto 2L": 6,  "Chardonnay 2L": 6,  "Rosato 2L": 6,
+        "Merlot 2L": 6,      "Syrah 2L": 6,
+        "Catarratto 1L": 12, "Syrah 1L": 12,
+    },
+    "Emanuele": {
+        "Catarratto 2L": 9,      "Rosato 2L": 9,          "Il Nero 2L": 9,
+        "Merlot 2L": 9,          "Vino Rosso 2L": 9,       "Syrah 2L": 9,
+        "Bianco S.E. 2L": 9,     "Rosato S.E. 2L": 9,      "Rosso S.E. 2L": 9,
+        "Catarratto R.B. 2L": 9, "Rosato R.B. 2L": 9,      "Il Nero R.B. 2L": 9,
+        "Vino Rosso R.B. 2L": 9, "Catarratto 1L": 16,      "Rosato 1L": 16,
+        "Il Nero 1L": 16,        "Bianco S.E. 1L": 16,     "Rosato S.E. 1L": 16,
+        "Rosso S.E. 1L": 16,
+    },
+    "Mazzarrone": {
+        "Divino Bianco 2L": 6,   "Divino Rosato 2L": 6,
+        "Divino Rosso 2L": 6,    "Divino Syrah 2L": 6,
+        "Divino Bianco 1L": 12,  "Divino Rosato 1L": 12,
+        "Divino Rosso 1L": 12,   "Divino Syrah 1L": 12,
+        "Pachinos Bianco 2L": 6, "Pachinos Rosato 2L": 6,
+        "Pachinos Rosso 2L": 6,  "Pachinos Syrah 2L": 6,
+        "Pachinos Bianco 1L": 12,"Pachinos Rosato 1L": 12,
+        "Pachinos Rosso 1L": 12, "Pachinos Syrah 1L": 12,
+    },
+    "Sisa": {
+        "Bianco 2L": 6, "Rosso 2L": 6,
+    },
+}
 
 CLIENTI_CONFIG = {
     "Roberto": {
-        "bolla":     "bolla_roberto.xlsx",
-        "conteggio": "conteggio_roberto.xlsx",
+        "bolla": "bolla_roberto.xlsx", "conteggio": "conteggio_roberto.xlsx",
         "prodotti": {
-            "Catarratto 2L":  (23, 6),
-            "Rosato 2L":      (25, 6),
-            "Merlot 2L":      (27, 6),
-            "Il Nero 2L":     (29, 6),
-            "Bianco E.N. 2L": (31, 6),
-            "Rosato E.N. 2L": (33, 6),
-            "Rosso E.N. 2L":  (35, 6),
-            "Catarratto 1L":  (37, 12),
-            "Rosato 1L":      (39, 12),
-            "Merlot 1L":      (41, 12),
-            "Bianco S.E. 1L": (43, 16),
-            "Rosato S.E. 1L": (45, 16),
-            "Rosso S.E. 1L":  (47, 16),
+            "Catarratto 2L": 23,  "Rosato 2L": 25,      "Merlot 2L": 27,
+            "Il Nero 2L": 29,     "Bianco E.N. 2L": 31,  "Rosato E.N. 2L": 33,
+            "Rosso E.N. 2L": 35,  "Catarratto 1L": 37,   "Rosato 1L": 39,
+            "Merlot 1L": 41,      "Bianco S.E. 1L": 43,  "Rosato S.E. 1L": 45,
+            "Rosso S.E. 1L": 47,
         },
-        "cella_titolo_bolla":     "H2",
-        "cella_data_bolla":       "F55",
-        "cella_titolo_conteggio": "G2",
-        "cella_data_conteggio":   "F53",
+        "righe_az": [23,25,27,29,31,33,35,37,39,41,43,45,47],
+        "cella_titolo_bolla": "H2",     "cella_data_bolla": "F55",
+        "cella_titolo_conteggio": "G2", "cella_data_conteggio": "F53",
     },
     "Francesco": {
-        "bolla":     "bolla_francesco.xlsx",
-        "conteggio": "conteggio_francesco.xlsx",
+        "bolla": "bolla_francesco.xlsx", "conteggio": "conteggio_francesco.xlsx",
         "prodotti": {
-            "Catarratto 2L":  (21, 6),
-            "Chardonnay 2L":  (23, 6),
-            "Rosato 2L":      (25, 6),
-            "Merlot 2L":      (27, 6),
-            "Syrah 2L":       (29, 6),
-            "Catarratto 1L":  (43, 12),
-            "Syrah 1L":       (45, 12),
+            "Catarratto 2L": 21, "Chardonnay 2L": 23, "Rosato 2L": 25,
+            "Merlot 2L": 27,     "Syrah 2L": 29,
+            "Catarratto 1L": 43, "Syrah 1L": 45,
         },
-        "cella_titolo_bolla":     "H2",
-        "cella_data_bolla":       "F55",
-        "cella_titolo_conteggio": "H2",
-        "cella_data_conteggio":   "F65",
+        "righe_az": [21,23,25,27,29,35,37,39,43,45],
+        "cella_titolo_bolla": "H2",     "cella_data_bolla": "F55",
+        "cella_titolo_conteggio": "H2", "cella_data_conteggio": "F65",
     },
     "Emanuele": {
-        "bolla":     "bolla_emanuele.xlsx",
-        "conteggio": "conteggio_emanuele.xlsx",
-        "prodotti": {
-            # bolla: righe colonna G
-            # conteggio: stesse righe (verificate)
-            "Catarratto 2L":     (21, 9),   # bolla G21 / conteggio G25
-            "Rosato 2L":         (23, 9),
-            "Il Nero 2L":        (25, 9),
-            "Vino Rosso 2L":     (27, 9),
-            "Syrah 2L":          (29, 9),
-            "Merlot 2L":         (31, 9),
-            "Catarratto 1L":     (33, 16),
-            "Rosato 1L":         (35, 16),
-            "Il Nero 1L":        (37, 16),
-            "Catarratto R.B. 2L":(41, 9),
-            "Rosato R.B. 2L":    (43, 9),
-            "Il Nero R.B. 2L":   (45, 9),
-            "Vino Rosso R.B. 2L":(47, 9),
-            "Bianco S.E. 2L":    (51, 9),
-            "Rosato S.E. 2L":    (53, 9),
-            "Rosso S.E. 2L":     (55, 9),
-            "Bianco S.E. 1L":    (57, 16),
-            "Rosato S.E. 1L":    (59, 16),
-            "Rosso S.E. 1L":     (61, 16),
+        "bolla": "bolla_emanuele.xlsx", "conteggio": "conteggio_emanuele.xlsx",
+        "prodotti_bolla": {
+            "Catarratto 2L": 21,      "Rosato 2L": 23,         "Il Nero 2L": 25,
+            "Vino Rosso 2L": 27,      "Syrah 2L": 29,           "Merlot 2L": 31,
+            "Catarratto 1L": 33,      "Rosato 1L": 35,          "Il Nero 1L": 37,
+            "Catarratto R.B. 2L": 41, "Rosato R.B. 2L": 43,    "Il Nero R.B. 2L": 45,
+            "Vino Rosso R.B. 2L": 47, "Bianco S.E. 2L": 51,    "Rosato S.E. 2L": 53,
+            "Rosso S.E. 2L": 55,      "Bianco S.E. 1L": 57,    "Rosato S.E. 1L": 59,
+            "Rosso S.E. 1L": 61,
         },
-        "cella_titolo_bolla":     "H2",
-        "cella_data_bolla":       "F67",
-        "cella_titolo_conteggio": "H2",
-        "cella_data_conteggio":   "F71",
+        "prodotti_conteggio": {
+            "Catarratto 2L": 25,      "Rosato 2L": 27,          "Il Nero 2L": 29,
+            "Vino Rosso 2L": 31,      "Syrah 2L": 33,           "Merlot 2L": 35,
+            "Catarratto 1L": 37,      "Rosato 1L": 39,          "Il Nero 1L": 41,
+            "Catarratto R.B. 2L": 45, "Rosato R.B. 2L": 47,    "Il Nero R.B. 2L": 49,
+            "Vino Rosso R.B. 2L": 51, "Bianco S.E. 2L": 55,    "Rosato S.E. 2L": 57,
+            "Rosso S.E. 2L": 59,      "Bianco S.E. 1L": 61,    "Rosato S.E. 1L": 63,
+            "Rosso S.E. 1L": 65,
+        },
+        "righe_az_bolla":     [21,23,25,27,29,31,33,35,37,41,43,45,47,51,53,55,57,59,61],
+        "righe_az_conteggio": [25,27,29,31,33,35,37,39,41,45,47,49,51,55,57,59,61,63,65],
+        "cella_titolo_bolla": "H2",     "cella_data_bolla": "F67",
+        "cella_titolo_conteggio": "H2", "cella_data_conteggio": "F71",
     },
     "Mazzarrone": {
-        "bolla":     None,
-        "conteggio": None,
-        "prodotti":  {},
-        "cella_titolo_bolla":     None,
-        "cella_data_bolla":       None,
-        "cella_titolo_conteggio": None,
-        "cella_data_conteggio":   None,
+        "bolla": None, "conteggio": None, "prodotti": {},
+        "righe_az": [],
+        "cella_titolo_bolla": None, "cella_data_bolla": None,
+        "cella_titolo_conteggio": None, "cella_data_conteggio": None,
     },
     "Sisa": {
-        "bolla":     None,
-        "conteggio": None,
-        "prodotti":  {},
-        "cella_titolo_bolla":     None,
-        "cella_data_bolla":       None,
-        "cella_titolo_conteggio": None,
-        "cella_data_conteggio":   None,
+        "bolla": None, "conteggio": None, "prodotti": {},
+        "righe_az": [],
+        "cella_titolo_bolla": None, "cella_data_bolla": None,
+        "cella_titolo_conteggio": None, "cella_data_conteggio": None,
     },
 }
-
-# Righe da azzerare per ogni cliente (tutte le righe prodotto del template)
-RIGHE_AZZERAMENTO = {
-    "Roberto":   [23,25,27,29,31,33,35,37,39,41,43,45,47],
-    "Francesco": [21,23,25,27,29,35,37,39,43,45],
-    "Emanuele":  [21,23,25,27,29,31,33,35,37,41,43,45,47,51,53,55,57,59,61],
-    "Mazzarrone": [],
-    "Sisa":       [],
-}
-
-# Per il conteggio Emanuele le righe G sono diverse dalla bolla
-EMANUELE_RIGHE_CONTEGGIO = {
-    "Catarratto 2L":     25,
-    "Rosato 2L":         27,
-    "Il Nero 2L":        29,
-    "Vino Rosso 2L":     31,
-    "Syrah 2L":          33,
-    "Merlot 2L":         35,
-    "Catarratto 1L":     37,
-    "Rosato 1L":         39,
-    "Il Nero 1L":        41,
-    "Catarratto R.B. 2L":45,
-    "Rosato R.B. 2L":    47,
-    "Il Nero R.B. 2L":   49,
-    "Vino Rosso R.B. 2L":51,
-    "Bianco S.E. 2L":    55,
-    "Rosato S.E. 2L":    57,
-    "Rosso S.E. 2L":     59,
-    "Bianco S.E. 1L":    61,
-    "Rosato S.E. 1L":    63,
-    "Rosso S.E. 1L":     65,
-}
-RIGHE_AZZERAMENTO_CONTEGGIO_EMANUELE = [25,27,29,31,33,35,37,39,41,45,47,49,51,55,57,59,61,63,65]
 
 
 # ==================================================
 # FUNZIONI EXCEL
 # ==================================================
 
-def _aggiorna_excel(ws, cliente, richieste, tipo="bolla"):
+def _aggiorna_excel(ws, cliente, richieste_fardelli, tipo="bolla"):
+    """richieste_fardelli: lista di (prodotto, fardelli)"""
     cfg = CLIENTI_CONFIG[cliente]
 
-    if tipo == "conteggio" and cliente == "Emanuele":
-        righe_az = RIGHE_AZZERAMENTO_CONTEGGIO_EMANUELE
-        for riga in righe_az:
-            ws[f"G{riga}"] = 0
-        for prodotto, qty_bt in richieste:
-            if prodotto in EMANUELE_RIGHE_CONTEGGIO:
-                riga = EMANUELE_RIGHE_CONTEGGIO[prodotto]
-                molt = cfg["prodotti"][prodotto][1]
-                ws[f"G{riga}"] = qty_bt / molt
+    if cliente == "Emanuele":
+        mappa    = cfg["prodotti_bolla"] if tipo == "bolla" else cfg["prodotti_conteggio"]
+        righe_az = cfg["righe_az_bolla"] if tipo == "bolla" else cfg["righe_az_conteggio"]
     else:
-        for riga in RIGHE_AZZERAMENTO.get(cliente, []):
-            ws[f"G{riga}"] = 0
-        for prodotto, qty_bt in richieste:
-            if prodotto in cfg["prodotti"]:
-                riga, molt = cfg["prodotti"][prodotto]
-                ws[f"G{riga}"] = qty_bt / molt
+        mappa    = cfg.get("prodotti", {})
+        righe_az = cfg.get("righe_az", [])
+
+    for riga in righe_az:
+        ws[f"G{riga}"] = 0
+
+    for prodotto, fardelli in richieste_fardelli:
+        if prodotto in mappa:
+            ws[f"G{mappa[prodotto]}"] = fardelli
 
 
-def _genera_file(cliente, richieste, tipo):
+def _genera_file(cliente, richieste_fardelli, tipo):
     cfg = CLIENTI_CONFIG[cliente]
     nome_modello = cfg["bolla"] if tipo == "bolla" else cfg["conteggio"]
 
@@ -250,18 +229,40 @@ def _genera_file(cliente, richieste, tipo):
 
     cella_titolo = cfg[f"cella_titolo_{tipo}"]
     cella_data   = cfg[f"cella_data_{tipo}"]
-
     if cella_titolo:
         ws[cella_titolo] = "DOCUMENTO DI TRASPORTO\nN.          DEL\n"
     if cella_data:
         ws[cella_data] = "DATA RITIRO\n\n\n"
 
-    _aggiorna_excel(ws, cliente, richieste, tipo)
+    _aggiorna_excel(ws, cliente, richieste_fardelli, tipo)
 
     nome_out = f"{tipo}_generato_{cliente.lower()}.xlsx"
     output   = os.path.join(BASE_DIR, nome_out)
     wb.save(output)
     return output, None
+
+
+def _leggi_richieste_fardelli(cliente, form):
+    """
+    Legge dal form i fardelli inseriti dall'utente.
+    Ritorna lista di (prodotto, fardelli) — fardelli è già l'unità giusta per Excel.
+    Salva anche in sessione i fardelli (non le bottiglie).
+    """
+    richieste = []
+    molt = MOLTIPLICATORI.get(cliente, {})
+    for i, prodotto in enumerate(clients[cliente]):
+        val = form.get(f"qty_{i}")
+        if val and val.isdigit():
+            f = int(val)
+            if f > 0:
+                richieste.append((prodotto, f))
+    return richieste
+
+
+def _fardelli_a_bottiglie(cliente, richieste_fardelli):
+    """Converte lista (prodotto, fardelli) in (prodotto, bottiglie) per il magazzino."""
+    molt = MOLTIPLICATORI.get(cliente, {})
+    return [(p, f * molt.get(p, 1)) for p, f in richieste_fardelli]
 
 
 # ==================================================
@@ -294,10 +295,12 @@ def produzione():
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM produzione ORDER BY id")
-    rows = cur.fetchall()
+    righe = cur.fetchall()
+    cur.execute("SELECT * FROM note ORDER BY data DESC")
+    note = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template("produzione.html", clients=clients, rows=rows)
+    return render_template("produzione.html", clients=clients, rows=righe, note=note)
 
 
 @app.route("/nuova_produzione", methods=["POST"])
@@ -305,18 +308,20 @@ def nuova_produzione():
     cliente = request.form["client"]
     conn = db()
     cur = conn.cursor()
+    molt = MOLTIPLICATORI.get(cliente, {})
     for i, prodotto in enumerate(clients[cliente]):
-        qty = request.form.get(f"qty_{i}")
-        if qty and qty.isdigit():
-            q = int(qty)
-            if q > 0:
+        val = request.form.get(f"qty_{i}")
+        if val and val.isdigit():
+            f = int(val)
+            if f > 0:
+                bottiglie = f * molt.get(prodotto, 1)
                 cur.execute(
                     "INSERT INTO produzione(cliente, prodotto, qty) VALUES(%s,%s,%s)",
-                    (cliente, prodotto, q)
+                    (cliente, prodotto, bottiglie)
                 )
                 cur.execute(
                     "INSERT INTO storico(cliente, prodotto, qty, tipo) VALUES(%s,%s,%s,%s)",
-                    (cliente, prodotto, q, "Produzione Inserita")
+                    (cliente, prodotto, bottiglie, "Produzione Inserita")
                 )
     conn.commit()
     cur.close()
@@ -367,6 +372,31 @@ def passa_magazzino():
     return redirect("/produzione")
 
 
+# NOTE PRODUZIONE
+@app.route("/aggiungi_nota", methods=["POST"])
+def aggiungi_nota():
+    testo = request.form.get("testo", "").strip()
+    if testo:
+        conn = db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO note(testo) VALUES(%s)", (testo,))
+        conn.commit()
+        cur.close()
+        conn.close()
+    return redirect("/produzione")
+
+
+@app.route("/elimina_nota/<int:id>")
+def elimina_nota(id):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM note WHERE id=%s", (id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect("/produzione")
+
+
 # ==================================================
 # MAGAZZINO
 # ==================================================
@@ -390,18 +420,19 @@ def magazzino():
 @app.route("/scarica", methods=["POST"])
 def scarica():
     cliente = request.form["client"]
-    richieste = []
+    molt = MOLTIPLICATORI.get(cliente, {})
+    richieste_bt = []
     for i, prodotto in enumerate(clients[cliente]):
-        qty = request.form.get(f"qty_{i}")
-        if qty and qty.isdigit():
-            q = int(qty)
-            if q > 0:
-                richieste.append((prodotto, q))
-    if not richieste:
+        val = request.form.get(f"qty_{i}")
+        if val and val.isdigit():
+            f = int(val)
+            if f > 0:
+                richieste_bt.append((prodotto, f * molt.get(prodotto, 1)))
+    if not richieste_bt:
         return redirect("/magazzino?msg=Nessun prodotto selezionato&cliente=" + cliente)
     conn = db()
     cur = conn.cursor()
-    for prodotto, q in richieste:
+    for prodotto, q in richieste_bt:
         cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         if not row:
@@ -410,7 +441,7 @@ def scarica():
         if row["qty"] < q:
             cur.close(); conn.close()
             return redirect("/magazzino?msg=" + prodotto + " quantita insufficiente&cliente=" + cliente)
-    for prodotto, q in richieste:
+    for prodotto, q in richieste_bt:
         cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         nuova = row["qty"] - q
@@ -445,24 +476,20 @@ def consegne():
     for r in rows:
         grouped.setdefault(r["cliente"], []).append(r)
     return render_template("consegne.html", clients=clients, grouped=grouped,
-                           cliente_sel=cliente_sel, msg=msg)
+                           cliente_sel=cliente_sel, msg=msg,
+                           moltiplicatori=MOLTIPLICATORI)
 
 
 @app.route("/esegui_consegna", methods=["POST"])
 def esegui_consegna():
     cliente = request.form["client"]
-    richieste = []
-    for i, prodotto in enumerate(clients[cliente]):
-        qty = request.form.get(f"qty_{i}")
-        if qty and qty.isdigit():
-            q = int(qty)
-            if q > 0:
-                richieste.append((prodotto, q))
-    if not richieste:
+    richieste_f = _leggi_richieste_fardelli(cliente, request.form)
+    if not richieste_f:
         return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
+    richieste_bt = _fardelli_a_bottiglie(cliente, richieste_f)
     conn = db()
     cur = conn.cursor()
-    for prodotto, q in richieste:
+    for prodotto, q in richieste_bt:
         cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         if not row:
@@ -471,7 +498,7 @@ def esegui_consegna():
         if row["qty"] < q:
             cur.close(); conn.close()
             return redirect("/consegne?msg=" + prodotto + " quantita insufficiente&cliente=" + cliente)
-    for prodotto, q in richieste:
+    for prodotto, q in richieste_bt:
         cur.execute("SELECT * FROM stock WHERE cliente=%s AND prodotto=%s", (cliente, prodotto))
         row = cur.fetchone()
         nuova = row["qty"] - q
@@ -486,82 +513,72 @@ def esegui_consegna():
     conn.commit()
     cur.close()
     conn.close()
+    # Salva fardelli in sessione (per Excel) e bottiglie per riepilogo
     session["consegna_cliente"]   = cliente
-    session["consegna_richieste"] = json.dumps(richieste)
+    session["consegna_fardelli"]  = json.dumps(richieste_f)
+    session["consegna_bottiglie"] = json.dumps(richieste_bt)
     return redirect("/conferma_consegna")
 
 
 @app.route("/conferma_consegna")
 def conferma_consegna():
-    cliente   = session.get("consegna_cliente", "")
-    richieste = json.loads(session.get("consegna_richieste", "[]"))
-    if not cliente or not richieste:
+    cliente    = session.get("consegna_cliente", "")
+    richieste_f  = json.loads(session.get("consegna_fardelli", "[]"))
+    richieste_bt = json.loads(session.get("consegna_bottiglie", "[]"))
+    if not cliente or not richieste_f:
         return redirect("/consegne?msg=Nessuna consegna attiva")
-    return render_template("conferma_consegna.html", cliente=cliente, richieste=richieste)
+    molt = MOLTIPLICATORI.get(cliente, {})
+    return render_template("conferma_consegna.html", cliente=cliente,
+                           richieste_f=richieste_f, richieste_bt=richieste_bt,
+                           molt=molt)
 
 
 @app.route("/download_bolla")
 def download_bolla():
-    cliente   = session.get("consegna_cliente", "")
-    richieste = json.loads(session.get("consegna_richieste", "[]"))
-    if not cliente or not richieste:
+    cliente    = session.get("consegna_cliente", "")
+    richieste_f = json.loads(session.get("consegna_fardelli", "[]"))
+    if not cliente or not richieste_f:
         return redirect("/consegne?msg=Nessuna consegna attiva")
-    output, errore = _genera_file(cliente, richieste, "bolla")
+    output, errore = _genera_file(cliente, richieste_f, "bolla")
     if errore:
         return redirect("/conferma_consegna?msg=" + errore)
-    return send_file(output, as_attachment=True,
-                     download_name=f"Bolla_{cliente}.xlsx")
+    return send_file(output, as_attachment=True, download_name=f"Bolla_{cliente}.xlsx")
 
 
 @app.route("/download_conteggio")
 def download_conteggio():
-    cliente   = session.get("consegna_cliente", "")
-    richieste = json.loads(session.get("consegna_richieste", "[]"))
-    if not cliente or not richieste:
+    cliente    = session.get("consegna_cliente", "")
+    richieste_f = json.loads(session.get("consegna_fardelli", "[]"))
+    if not cliente or not richieste_f:
         return redirect("/consegne?msg=Nessuna consegna attiva")
-    output, errore = _genera_file(cliente, richieste, "conteggio")
+    output, errore = _genera_file(cliente, richieste_f, "conteggio")
     if errore:
         return redirect("/conferma_consegna?msg=" + errore)
-    return send_file(output, as_attachment=True,
-                     download_name=f"Conteggio_{cliente}.xlsx")
+    return send_file(output, as_attachment=True, download_name=f"Conteggio_{cliente}.xlsx")
 
 
 @app.route("/solo_bolla", methods=["POST"])
 def solo_bolla():
     cliente = request.form["client"]
-    richieste = []
-    for i, prodotto in enumerate(clients[cliente]):
-        qty = request.form.get(f"qty_{i}")
-        if qty and qty.isdigit():
-            q = int(qty)
-            if q > 0:
-                richieste.append((prodotto, q))
-    if not richieste:
+    richieste_f = _leggi_richieste_fardelli(cliente, request.form)
+    if not richieste_f:
         return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
-    output, errore = _genera_file(cliente, richieste, "bolla")
+    output, errore = _genera_file(cliente, richieste_f, "bolla")
     if errore:
         return redirect("/consegne?msg=" + errore + "&cliente=" + cliente)
-    return send_file(output, as_attachment=True,
-                     download_name=f"Bolla_{cliente}.xlsx")
+    return send_file(output, as_attachment=True, download_name=f"Bolla_{cliente}.xlsx")
 
 
 @app.route("/solo_conteggio", methods=["POST"])
 def solo_conteggio():
     cliente = request.form["client"]
-    richieste = []
-    for i, prodotto in enumerate(clients[cliente]):
-        qty = request.form.get(f"qty_{i}")
-        if qty and qty.isdigit():
-            q = int(qty)
-            if q > 0:
-                richieste.append((prodotto, q))
-    if not richieste:
+    richieste_f = _leggi_richieste_fardelli(cliente, request.form)
+    if not richieste_f:
         return redirect("/consegne?msg=Nessun prodotto selezionato&cliente=" + cliente)
-    output, errore = _genera_file(cliente, richieste, "conteggio")
+    output, errore = _genera_file(cliente, richieste_f, "conteggio")
     if errore:
         return redirect("/consegne?msg=" + errore + "&cliente=" + cliente)
-    return send_file(output, as_attachment=True,
-                     download_name=f"Conteggio_{cliente}.xlsx")
+    return send_file(output, as_attachment=True, download_name=f"Conteggio_{cliente}.xlsx")
 
 
 # ==================================================
