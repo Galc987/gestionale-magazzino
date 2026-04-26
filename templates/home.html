@@ -9,8 +9,7 @@ h1 { margin-bottom: 30px; color: #2c3e50; }
 .menu {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    max-width: 900px;
+    gap: 20px; max-width: 900px; margin-bottom: 30px;
 }
 a.card {
     display: block; padding: 28px 20px; background: white;
@@ -27,6 +26,15 @@ a.card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.15); }
     width: 24px; height: 24px; font-size: 13px; font-weight: bold;
     display: flex; align-items: center; justify-content: center;
 }
+/* Alert box */
+.alert-home {
+    max-width: 900px;
+    background: #fff3cd; border-left: 4px solid #f39c12;
+    border-radius: 8px; padding: 14px 18px;
+}
+.alert-home h3 { color: #856404; font-size: 15px; margin-bottom: 8px; }
+.alert-item { font-size: 13px; color: #7d5a00; padding: 3px 0; }
+.alert-item strong { color: #5a3e00; }
 </style>
 </head>
 <body>
@@ -37,8 +45,8 @@ a.card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.15); }
     </a>
     <a class="card" href="/magazzino">
         <span class="icon">📦</span>Magazzino
-        {% if alert_mp > 0 %}
-        <span class="badge">{{ alert_mp }}</span>
+        {% if alert_mp %}
+        <span class="badge">{{ alert_mp|length }}</span>
         {% endif %}
     </a>
     <a class="card" href="/consegne">
@@ -48,5 +56,23 @@ a.card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.15); }
         <span class="icon">📋</span>Storico
     </a>
 </div>
+
+{% if alert_mp %}
+<div class="alert-home">
+    <h3>⚠️ Scorte in esaurimento — effettua un ordine</h3>
+    {% for a in alert_mp %}
+    <div class="alert-item">
+        🔴
+        {% if a.cliente == "GLOBALE" %}
+            <strong>{{ a.materiale }}</strong>
+        {% else %}
+            <strong>{{ a.cliente }}</strong> — {{ a.materiale }}
+        {% endif %}
+        : {{ a.qty }} (soglia: {{ a.soglia }})
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 </body>
 </html>
