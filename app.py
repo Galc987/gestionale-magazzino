@@ -136,13 +136,21 @@ MOLTIPLICATORI = {
 }
 
 # Materie prime per cliente
-def _build_materie(cliente):
-    mp = ["Bottiglie 2L vuote", "Bottiglie 1L vuote"]
-    for p in clients[cliente]:
-        mp.append(f"Etichetta {p}")
-    return mp
+# Bottiglie vuote: globali (non per cliente)
+BOTTIGLIE_GLOBALI = ["Bottiglie 2L vuote", "Bottiglie 1L vuote"]
 
-MATERIE_PRIME_CLIENTI = {c: _build_materie(c) for c in clients}
+# Soglie minime fisse
+SOGLIE_MP = {
+    "Bottiglie 2L vuote": 8000,
+    "Bottiglie 1L vuote": 1800,
+}
+SOGLIA_ETICHETTE = 1000
+
+# Etichette per cliente
+def _build_etichette(cliente):
+    return [f"Etichetta {p}" for p in clients[cliente]]
+
+ETICHETTE_CLIENTI = {c: _build_etichette(c) for c in clients}
 
 CLIENTI_CONFIG = {
     "Roberto": {
@@ -273,10 +281,12 @@ def _is_1L(prodotto):
 
 def _scarico_automatico_bottiglie(cur, cliente, prodotti_bottiglie):
     """
-    Scarica automaticamente bottiglie vuote ed etichette quando la produzione
-    passa a magazzino. prodotti_bottiglie = [(prodotto, qty_bt), ...]
+    Scarica automaticamente:
+    - Bottiglie vuote: globali (cliente="GLOBALE"), aggregate per formato
+    - Etichette: per cliente, una per bottiglia per ogni prodotto
+    prodotti_bottiglie = [(prodotto, qty_bt), ...]
     """
-    # --- Bottiglie vuote aggregate per formato ---
+    # --- Bottiglie vuote GLOBALI ---
     bt2L = sum(q for p, q in prodotti_bottiglie if _is_2L(p))
     bt1L = sum(q for p, q in prodotti_bottiglie if _is_1L(p))
 
@@ -285,7 +295,7 @@ def _scarico_automatico_bottiglie(cur, cliente, prodotti_bottiglie):
             continue
         cur.execute(
             "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
-            (cliente, materiale)
+            ("GLOBALE", materiale)
         )
         row = cur.fetchone()
         if row and row["qty"] >= qty_usate:
@@ -293,10 +303,10 @@ def _scarico_automatico_bottiglie(cur, cliente, prodotti_bottiglie):
                         (row["qty"] - qty_usate, row["id"]))
             cur.execute(
                 "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
-                (cliente, materiale, qty_usate, "Scarico automatico produzione")
+                ("GLOBALE", materiale, qty_usate, "Scarico automatico produzione")
             )
 
-    # --- Etichette: una per bottiglia per ogni prodotto ---
+    # --- Etichette per CLIENTE ---
     for prodotto, qty_bt in prodotti_bottiglie:
         materiale = f"Etichetta {prodotto}"
         cur.execute(
@@ -313,19 +323,32 @@ def _scarico_automatico_bottiglie(cur, cliente, prodotti_bottiglie):
             )
 
 
-def _conta_alert_mp():
+def _get_alert_mp():
+    """Ritorna lista di dict con tutti gli alert sotto soglia (soglie fisse)."""
     try:
         conn = db()
         cur = conn.cursor()
-        cur.execute(
-            "SELECT COUNT(*) as n FROM materie_prime WHERE qty <= soglia_minima AND soglia_minima > 0"
-        )
-        n = cur.fetchone()["n"]
+        cur.execute("SELECT * FROM materie_prime ORDER BY cliente, materiale")
+        rows = cur.fetchall()
         cur.close()
         conn.close()
-        return n
+        alert = []
+        for r in rows:
+            soglia = SOGLIE_MP.get(r["materiale"], SOGLIA_ETICHETTE)
+            if r["qty"] <= soglia:
+                alert.append({
+                    "cliente":   r["cliente"],
+                    "materiale": r["materiale"],
+                    "qty":       r["qty"],
+                    "soglia":    soglia,
+                })
+        return alert
     except:
-        return 0
+        return []
+
+
+def _conta_alert_mp():
+    return len(_get_alert_mp())
 
 
 # ==================================================
@@ -333,7 +356,7 @@ def _conta_alert_mp():
 # ==================================================
 @app.route("/")
 def home():
-    return render_template("home.html", alert_mp=_conta_alert_mp())
+    return render_template("home.html", alert_mp=_get_alert_mp())
 
 
 # ==================================================
@@ -500,13 +523,18 @@ def magazzino():
         if r["soglia_minima"] > 0 and r["qty"] <= r["soglia_minima"]:
             alert_mp.append(r)
 
+    # Separa giacenze bottiglie globali da etichette per cliente
+    bottiglie_globali = grouped_mp.get("GLOBALE", [])
+    grouped_etichette = {k: v for k, v in grouped_mp.items() if k != "GLOBALE"}
+
     return render_template(
         "magazzino.html",
         grouped=grouped,
-        grouped_mp=grouped_mp,
-        alert_mp=alert_mp,
+        bottiglie_globali=bottiglie_globali,
+        grouped_etichette=grouped_etichette,
+        alert_mp=_get_alert_mp(),
         clients=clients,
-        materie_clienti=MATERIE_PRIME_CLIENTI,
+        etichette_clienti=ETICHETTE_CLIENTI,
         msg=msg,
         cliente_sel=cliente_sel,
         moltiplicatori=MOLTIPLICATORI,
@@ -562,8 +590,20 @@ def scarica():
 def init_materie_prime():
     conn = db()
     cur = conn.cursor()
-    for cliente, materiali in MATERIE_PRIME_CLIENTI.items():
-        for materiale in materiali:
+    # Bottiglie vuote: globali
+    for materiale in BOTTIGLIE_GLOBALI:
+        cur.execute(
+            "SELECT id FROM materie_prime WHERE cliente=%s AND materiale=%s",
+            ("GLOBALE", materiale)
+        )
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO materie_prime(cliente, materiale, qty, soglia_minima) VALUES(%s,%s,0,0)",
+                ("GLOBALE", materiale)
+            )
+    # Etichette: per cliente
+    for cliente, etichette in ETICHETTE_CLIENTI.items():
+        for materiale in etichette:
             cur.execute(
                 "SELECT id FROM materie_prime WHERE cliente=%s AND materiale=%s",
                 (cliente, materiale)
@@ -581,8 +621,9 @@ def init_materie_prime():
 
 @app.route("/carico_mp", methods=["POST"])
 def carico_mp():
-    cliente   = request.form["cliente"]
     materiale = request.form["materiale"]
+    # Bottiglie vuote sono globali
+    cliente = "GLOBALE" if materiale in BOTTIGLIE_GLOBALI else request.form["cliente"]
     val       = request.form.get("qty", "0")
     unita     = request.form.get("unita", "pezzi")  # "pedane" o "pezzi"
     if not val.isdigit() or int(val) <= 0:
@@ -620,8 +661,8 @@ def carico_mp():
 
 @app.route("/scarico_mp", methods=["POST"])
 def scarico_mp():
-    cliente   = request.form["cliente"]
     materiale = request.form["materiale"]
+    cliente = "GLOBALE" if materiale in BOTTIGLIE_GLOBALI else request.form["cliente"]
     val       = request.form.get("qty", "0")
     if not val.isdigit() or int(val) <= 0:
         return redirect("/magazzino?msg=Quantita non valida&cliente=" + cliente)
