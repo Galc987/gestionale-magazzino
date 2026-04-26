@@ -5,78 +5,214 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; padding: 30px 20px; background: #f4f6f8; }
-h2 { color: #2c3e50; margin-bottom: 15px; }
+h2 { color: #2c3e50; margin-bottom: 4px; }
 .back { display: inline-block; margin-bottom: 20px; color: #555; text-decoration: none; }
 .back:hover { color: #000; }
-.box {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+
+/* Sezioni macro */
+.sezione { margin-bottom: 30px; }
+.sezione-titolo {
+    font-size: 18px; font-weight: bold; padding: 12px 18px;
+    border-radius: 10px 10px 0 0; color: white; margin-bottom: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; user-select: none;
 }
-table { width: 100%; border-collapse: collapse; }
-th {
-    text-align: left;
-    padding: 10px;
-    background: #2c3e50;
-    color: white;
-    font-size: 14px;
+.sezione-titolo .toggle-hint { font-size: 13px; font-weight: normal; opacity: .8; }
+.s-prod    .sezione-titolo { background: #2980b9; }
+.s-mag     .sezione-titolo { background: #27ae60; }
+.s-scar    .sezione-titolo { background: #e67e22; }
+.s-cons    .sezione-titolo { background: #8e44ad; }
+.s-mp      .sezione-titolo { background: #7f8c8d; }
+
+.sezione-body { background: white; border-radius: 0 0 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.07); padding: 0; overflow: hidden; }
+
+/* Griglia clienti */
+.clienti-grid { display: flex; flex-wrap: wrap; gap: 0; }
+.cliente-block {
+    flex: 1; min-width: 200px;
+    border-right: 1px solid #f0f0f0;
+    padding: 14px;
 }
-td { padding: 9px 10px; border-bottom: 1px solid #eee; font-size: 14px; }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: #f9f9f9; }
-.badge {
-    display: inline-block;
-    padding: 3px 9px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: bold;
+.cliente-block:last-child { border-right: none; }
+.cliente-nome {
+    font-size: 14px; font-weight: bold; color: #2c3e50;
+    margin-bottom: 8px; padding-bottom: 6px;
+    border-bottom: 2px solid #e0e0e0;
 }
-.badge-prod { background: #d1ecf1; color: #0c5460; }
-.badge-mag  { background: #d4edda; color: #155724; }
-.badge-scar { background: #fff3cd; color: #856404; }
-.empty { color: #aaa; font-style: italic; }
+.riga { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; gap: 8px; }
+.riga:last-child { border-bottom: none; }
+.riga .prodotto { color: #333; flex: 1; }
+.riga .qty { font-weight: bold; color: #2c3e50; white-space: nowrap; }
+.riga .data { font-size: 11px; color: #bbb; white-space: nowrap; }
+
+/* Materie prime: tabella semplice */
+.mp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mp-table th { text-align: left; padding: 9px 14px; background: #f5f5f5; color: #555; font-size: 13px; }
+.mp-table td { padding: 8px 14px; border-bottom: 1px solid #f0f0f0; }
+.mp-table tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+.b-carico { background: #d4edda; color: #155724; }
+.b-scarico { background: #fff3cd; color: #856404; }
+.b-auto   { background: #f0e6fa; color: #6c3483; }
+
+.empty { color: #aaa; font-style: italic; padding: 14px; font-size: 14px; }
 </style>
+<script>
+function toggleSezione(id) {
+    var el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+</script>
 </head>
 <body>
 <a class="back" href="/">← Home</a>
 
-<div class="box">
-    <h2>📋 Storico Movimenti</h2>
+<!-- ===== PRODUZIONE INSERITA ===== -->
+<div class="sezione s-prod">
+    <div class="sezione-titolo" onclick="toggleSezione('body-prod')">
+        🏭 Produzione Inserita
+        <span class="toggle-hint">clicca per espandere/chiudere</span>
+    </div>
+    <div class="sezione-body" id="body-prod">
+        {% if prod_per_cliente %}
+        <div class="clienti-grid">
+            {% for cliente, righe in prod_per_cliente.items() %}
+            <div class="cliente-block">
+                <div class="cliente-nome">{{ cliente }}</div>
+                {% for r in righe %}
+                <div class="riga">
+                    <span class="prodotto">{{ r.prodotto }}</span>
+                    <span class="qty">{{ r.qty }} bt</span>
+                    <span class="data">{{ r.data.strftime('%d/%m %H:%M') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty">Nessun record.</p>
+        {% endif %}
+    </div>
+</div>
 
-    {% if rows %}
-    <table>
-        <tr>
-            <th>Data</th>
-            <th>Cliente</th>
-            <th>Prodotto</th>
-            <th>Qtà</th>
-            <th>Tipo</th>
-        </tr>
-        {% for r in rows %}
-        <tr>
-            <td>{{ r.data.strftime('%d/%m/%Y %H:%M') }}</td>
-            <td>{{ r.cliente }}</td>
-            <td>{{ r.prodotto }}</td>
-            <td><strong>{{ r.qty }}</strong></td>
-            <td>
-                {% if r.tipo == "Produzione Inserita" %}
-                    <span class="badge badge-prod">🏭 {{ r.tipo }}</span>
-                {% elif r.tipo == "Passato a Magazzino" %}
-                    <span class="badge badge-mag">📦 {{ r.tipo }}</span>
-                {% elif r.tipo == "Scarico Magazzino" %}
-                    <span class="badge badge-scar">⬇️ {{ r.tipo }}</span>
-                {% else %}
-                    <span class="badge">{{ r.tipo }}</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
-    {% else %}
-        <p class="empty">Nessun movimento registrato.</p>
-    {% endif %}
+<!-- ===== PASSATO A MAGAZZINO ===== -->
+<div class="sezione s-mag">
+    <div class="sezione-titolo" onclick="toggleSezione('body-mag')">
+        📦 Passato a Magazzino
+        <span class="toggle-hint">clicca per espandere/chiudere</span>
+    </div>
+    <div class="sezione-body" id="body-mag" style="display:none">
+        {% if mag_per_cliente %}
+        <div class="clienti-grid">
+            {% for cliente, righe in mag_per_cliente.items() %}
+            <div class="cliente-block">
+                <div class="cliente-nome">{{ cliente }}</div>
+                {% for r in righe %}
+                <div class="riga">
+                    <span class="prodotto">{{ r.prodotto }}</span>
+                    <span class="qty">{{ r.qty }} bt</span>
+                    <span class="data">{{ r.data.strftime('%d/%m %H:%M') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty">Nessun record.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ===== SCARICO MAGAZZINO ===== -->
+<div class="sezione s-scar">
+    <div class="sezione-titolo" onclick="toggleSezione('body-scar')">
+        ⬇️ Scarico Magazzino
+        <span class="toggle-hint">clicca per espandere/chiudere</span>
+    </div>
+    <div class="sezione-body" id="body-scar" style="display:none">
+        {% if scar_per_cliente %}
+        <div class="clienti-grid">
+            {% for cliente, righe in scar_per_cliente.items() %}
+            <div class="cliente-block">
+                <div class="cliente-nome">{{ cliente }}</div>
+                {% for r in righe %}
+                <div class="riga">
+                    <span class="prodotto">{{ r.prodotto }}</span>
+                    <span class="qty">{{ r.qty }} bt</span>
+                    <span class="data">{{ r.data.strftime('%d/%m %H:%M') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty">Nessun record.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ===== CONSEGNE ===== -->
+<div class="sezione s-cons">
+    <div class="sezione-titolo" onclick="toggleSezione('body-cons')">
+        🚚 Consegne
+        <span class="toggle-hint">clicca per espandere/chiudere</span>
+    </div>
+    <div class="sezione-body" id="body-cons" style="display:none">
+        {% if cons_per_cliente %}
+        <div class="clienti-grid">
+            {% for cliente, righe in cons_per_cliente.items() %}
+            <div class="cliente-block">
+                <div class="cliente-nome">{{ cliente }}</div>
+                {% for r in righe %}
+                <div class="riga">
+                    <span class="prodotto">{{ r.prodotto }}</span>
+                    <span class="qty">{{ r.qty }} bt</span>
+                    <span class="data">{{ r.data.strftime('%d/%m %H:%M') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty">Nessun record.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ===== MATERIE PRIME ===== -->
+<div class="sezione s-mp">
+    <div class="sezione-titolo" onclick="toggleSezione('body-mp')">
+        🧪 Materie Prime
+        <span class="toggle-hint">clicca per espandere/chiudere</span>
+    </div>
+    <div class="sezione-body" id="body-mp" style="display:none">
+        {% if rows_mp %}
+        <table class="mp-table">
+            <tr>
+                <th>Data</th><th>Cliente</th><th>Materiale</th><th>Qtà</th><th>Tipo</th>
+            </tr>
+            {% for r in rows_mp %}
+            <tr>
+                <td>{{ r.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>{{ r.cliente }}</td>
+                <td>{{ r.materiale }}</td>
+                <td><strong>{{ r.qty }}</strong></td>
+                <td>
+                    {% if r.tipo == "Carico" %}
+                        <span class="badge b-carico">➕ Carico</span>
+                    {% elif "automatico" in r.tipo %}
+                        <span class="badge b-auto">⚙️ Auto</span>
+                    {% else %}
+                        <span class="badge b-scarico">➖ Scarico</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p class="empty">Nessun movimento materie prime.</p>
+        {% endif %}
+    </div>
 </div>
 
 </body>
