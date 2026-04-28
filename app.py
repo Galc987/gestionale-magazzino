@@ -681,42 +681,70 @@ def init_materie_prime():
 
 @app.route("/carico_mp", methods=["POST"])
 def carico_mp():
-    materiale = request.form["materiale"]
-    # Bottiglie vuote sono globali
-    cliente = "GLOBALE" if materiale in BOTTIGLIE_GLOBALI else request.form["cliente"]
-    val       = request.form.get("qty", "0")
-    unita     = request.form.get("unita", "pezzi")  # "pedane" o "pezzi"
-    if not val.isdigit() or int(val) <= 0:
-        return redirect("/magazzino?msg=Quantita non valida&cliente=" + cliente)
-    q = int(val)
-    # Converti pedane in bottiglie se necessario
-    if unita == "pedane":
-        if "2L" in materiale:
-            q = q * BT_PER_PEDANA_2L
-        elif "1L" in materiale:
-            q = q * BT_PER_PEDANA_1L
+    cliente = request.form.get("cliente", "GLOBALE")
     conn = db()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
-        (cliente, materiale)
-    )
-    row = cur.fetchone()
-    if row:
-        cur.execute("UPDATE materie_prime SET qty=%s WHERE id=%s", (row["qty"] + q, row["id"]))
-    else:
-        cur.execute(
-            "INSERT INTO materie_prime(cliente, materiale, qty, soglia_minima) VALUES(%s,%s,%s,0)",
-            (cliente, materiale, q)
-        )
-    cur.execute(
-        "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
-        (cliente, materiale, q, "Carico")
-    )
+    caricati = 0
+
+    # Bottiglie globali (da form dedicato con unita pedane/pezzi)
+    for mat in BOTTIGLIE_GLOBALI:
+        campo = mat.replace(" ", "_")
+        val   = request.form.get(f"qty_{campo}", "")
+        unita = request.form.get(f"unita_{campo}", "pezzi")
+        if val and val.isdigit() and int(val) > 0:
+            q = int(val)
+            if unita == "pedane":
+                q = q * (BT_PER_PEDANA_2L if "2L" in mat else BT_PER_PEDANA_1L)
+            cur.execute(
+                "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
+                ("GLOBALE", mat)
+            )
+            row = cur.fetchone()
+            if row:
+                cur.execute("UPDATE materie_prime SET qty=%s WHERE id=%s",
+                            (row["qty"] + q, row["id"]))
+            else:
+                cur.execute(
+                    "INSERT INTO materie_prime(cliente, materiale, qty, soglia_minima) VALUES(%s,%s,%s,0)",
+                    ("GLOBALE", mat, q)
+                )
+            cur.execute(
+                "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
+                ("GLOBALE", mat, q, "Carico")
+            )
+            caricati += 1
+
+    # Etichette per cliente (tutte insieme)
+    if cliente != "GLOBALE" and cliente in ETICHETTE_CLIENTI:
+        for etichetta in ETICHETTE_CLIENTI[cliente]:
+            campo = str(ETICHETTE_CLIENTI[cliente].index(etichetta))
+            val   = request.form.get(f"qty_et_{campo}", "")
+            if val and val.isdigit() and int(val) > 0:
+                q = int(val)
+                cur.execute(
+                    "SELECT * FROM materie_prime WHERE cliente=%s AND materiale=%s",
+                    (cliente, etichetta)
+                )
+                row = cur.fetchone()
+                if row:
+                    cur.execute("UPDATE materie_prime SET qty=%s WHERE id=%s",
+                                (row["qty"] + q, row["id"]))
+                else:
+                    cur.execute(
+                        "INSERT INTO materie_prime(cliente, materiale, qty, soglia_minima) VALUES(%s,%s,%s,0)",
+                        (cliente, etichetta, q)
+                    )
+                cur.execute(
+                    "INSERT INTO storico_mp(cliente, materiale, qty, tipo) VALUES(%s,%s,%s,%s)",
+                    (cliente, etichetta, q, "Carico")
+                )
+                caricati += 1
+
     conn.commit()
     cur.close()
     conn.close()
-    return redirect("/magazzino?msg=Carico registrato&cliente=" + cliente)
+    msg = "Carico registrato" if caricati > 0 else "Nessuna quantità inserita"
+    return redirect("/magazzino?msg=" + msg + "&cliente=" + cliente)
 
 
 @app.route("/scarico_mp", methods=["POST"])
@@ -884,6 +912,120 @@ def solo_conteggio():
     if errore:
         return redirect("/consegne?msg=" + errore + "&cliente=" + cliente)
     return send_file(output, as_attachment=True, download_name=f"Conteggio_{cliente}.xlsx")
+
+
+# ==================================================
+# ANALISI
+# ==================================================
+@app.route("/analisi")
+def analisi():
+    from datetime import datetime, timedelta
+
+    periodo = request.args.get("periodo", "30")
+    data_da = request.args.get("data_da", "")
+    data_a  = request.args.get("data_a", "")
+    oggi    = datetime.now().date()
+
+    if periodo == "7":
+        filtro_da = oggi - timedelta(days=7)
+        filtro_a  = oggi + timedelta(days=1)
+    elif periodo == "30":
+        filtro_da = oggi - timedelta(days=30)
+        filtro_a  = oggi + timedelta(days=1)
+    elif periodo == "custom" and data_da and data_a:
+        try:
+            filtro_da = datetime.strptime(data_da, "%Y-%m-%d").date()
+            filtro_a  = datetime.strptime(data_a, "%Y-%m-%d").date() + timedelta(days=1)
+        except:
+            filtro_da = oggi - timedelta(days=30)
+            filtro_a  = oggi + timedelta(days=1)
+    else:
+        filtro_da = oggi - timedelta(days=30)
+        filtro_a  = oggi + timedelta(days=1)
+
+    conn = db()
+    cur = conn.cursor()
+
+    # 1. Produzione per cliente (bottiglie totali)
+    cur.execute("""
+        SELECT cliente, SUM(qty) as totale FROM storico
+        WHERE tipo='Produzione Inserita' AND data>=%s AND data<%s
+        GROUP BY cliente ORDER BY totale DESC
+    """, (filtro_da, filtro_a))
+    prod_cliente = cur.fetchall()
+
+    # 2. Consegne per cliente (bottiglie totali)
+    cur.execute("""
+        SELECT cliente, SUM(qty) as totale FROM storico
+        WHERE tipo='Consegna' AND data>=%s AND data<%s
+        GROUP BY cliente ORDER BY totale DESC
+    """, (filtro_da, filtro_a))
+    cons_cliente = cur.fetchall()
+
+    # 3. Produzione per prodotto (top 10)
+    cur.execute("""
+        SELECT prodotto, cliente, SUM(qty) as totale FROM storico
+        WHERE tipo='Produzione Inserita' AND data>=%s AND data<%s
+        GROUP BY prodotto, cliente ORDER BY totale DESC LIMIT 10
+    """, (filtro_da, filtro_a))
+    prod_prodotto = cur.fetchall()
+
+    # 4. Trend produzione giornaliero
+    cur.execute("""
+        SELECT DATE(data) as giorno, SUM(qty) as totale FROM storico
+        WHERE tipo='Produzione Inserita' AND data>=%s AND data<%s
+        GROUP BY DATE(data) ORDER BY giorno
+    """, (filtro_da, filtro_a))
+    trend_prod = cur.fetchall()
+
+    # 5. Trend consegne giornaliero
+    cur.execute("""
+        SELECT DATE(data) as giorno, SUM(qty) as totale FROM storico
+        WHERE tipo='Consegna' AND data>=%s AND data<%s
+        GROUP BY DATE(data) ORDER BY giorno
+    """, (filtro_da, filtro_a))
+    trend_cons = cur.fetchall()
+
+    # 6. Consumo materie prime bottiglie + proiezione
+    cur.execute("""
+        SELECT materiale, SUM(qty) as totale FROM storico_mp
+        WHERE tipo='Scarico automatico produzione' AND data>=%s AND data<%s
+        GROUP BY materiale
+    """, (filtro_da, filtro_a))
+    consumo_bt = {r["materiale"]: r["totale"] for r in cur.fetchall()}
+
+    cur.execute("""
+        SELECT * FROM materie_prime WHERE cliente='GLOBALE'
+    """)
+    scorte_bt = {r["materiale"]: r["qty"] for r in cur.fetchall()}
+
+    giorni_periodo = max((filtro_a - filtro_da).days, 1)
+    proiezioni = {}
+    for mat in BOTTIGLIE_GLOBALI:
+        consumo_gg = consumo_bt.get(mat, 0) / giorni_periodo
+        scorta     = scorte_bt.get(mat, 0)
+        if consumo_gg > 0:
+            proiezioni[mat] = round(scorta / consumo_gg)
+        else:
+            proiezioni[mat] = None
+
+    cur.close()
+    conn.close()
+
+    return render_template("analisi.html",
+        prod_cliente=prod_cliente,
+        cons_cliente=cons_cliente,
+        prod_prodotto=prod_prodotto,
+        trend_prod=trend_prod,
+        trend_cons=trend_cons,
+        proiezioni=proiezioni,
+        scorte_bt=scorte_bt,
+        consumo_bt=consumo_bt,
+        periodo=periodo,
+        data_da=data_da,
+        data_a=data_a,
+        giorni_periodo=giorni_periodo,
+    )
 
 
 # ==================================================
