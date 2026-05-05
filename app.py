@@ -915,6 +915,64 @@ def solo_conteggio():
 
 
 # ==================================================
+# BACKUP
+# ==================================================
+@app.route("/backup")
+def backup():
+    """Esporta tutto il database in JSON scaricabile."""
+    from flask import jsonify
+    import datetime
+
+    conn = db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM stock ORDER BY cliente, prodotto")
+    stock = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT * FROM produzione ORDER BY id")
+    produzione_rows = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT * FROM storico ORDER BY data DESC")
+    storico_rows = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT * FROM materie_prime ORDER BY cliente, materiale")
+    mp_rows = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT * FROM storico_mp ORDER BY data DESC")
+    storico_mp_rows = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT * FROM note ORDER BY data DESC")
+    note_rows = [dict(r) for r in cur.fetchall()]
+
+    cur.close()
+    conn.close()
+
+    # Converti datetime in stringa per JSON
+    def serialize(rows):
+        for r in rows:
+            for k, v in r.items():
+                if hasattr(v, "isoformat"):
+                    r[k] = v.isoformat()
+        return rows
+
+    data = {
+        "backup_data": datetime.datetime.now().isoformat(),
+        "stock": serialize(stock),
+        "produzione": serialize(produzione_rows),
+        "storico": serialize(storico_rows),
+        "materie_prime": serialize(mp_rows),
+        "storico_mp": serialize(storico_mp_rows),
+        "note": serialize(note_rows),
+    }
+
+    response = jsonify(data)
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=backup_{datetime.date.today()}.json"
+    )
+    return response
+
+
+# ==================================================
 # ANALISI
 # ==================================================
 @app.route("/analisi")
@@ -1026,6 +1084,41 @@ def analisi():
         data_a=data_a,
         giorni_periodo=giorni_periodo,
     )
+
+
+# ==================================================
+# BACKUP MANUALE
+# ==================================================
+@app.route("/backup_manuale")
+def backup_manuale():
+    import json as _json
+    from datetime import datetime as _dt
+
+    conn = db()
+    cur = conn.cursor()
+    tabelle = ["stock", "produzione", "storico", "note", "materie_prime", "storico_mp"]
+    backup = {"data_backup": _dt.now().isoformat(), "tabelle": {}}
+
+    for tabella in tabelle:
+        cur.execute(f"SELECT * FROM {tabella} ORDER BY id")
+        righe = []
+        for r in cur.fetchall():
+            riga = dict(r)
+            for k, v in riga.items():
+                if hasattr(v, "isoformat"):
+                    riga[k] = v.isoformat()
+            righe.append(riga)
+        backup["tabelle"][tabella] = righe
+
+    cur.close()
+    conn.close()
+
+    nome = f"backup_{_dt.now().strftime('%Y%m%d_%H%M%S')}.json"
+    path = os.path.join(BASE_DIR, nome)
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(backup, f, ensure_ascii=False, indent=2)
+
+    return send_file(path, as_attachment=True, download_name=nome)
 
 
 # ==================================================
