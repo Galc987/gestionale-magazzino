@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Ripristino Backup</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; padding: 40px 20px; background: #f4f6f8; }
+.back { display: inline-block; margin-bottom: 24px; color: #555; text-decoration: none; }
+.back:hover { color: #000; }
+.box { background: white; padding: 28px; border-radius: 12px; max-width: 560px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+h2 { color: #2c3e50; margin-bottom: 8px; }
+.sottotitolo { color: #888; font-size: 14px; margin-bottom: 24px; }
+.avviso { background: #fff3cd; border-left: 4px solid #f39c12; border-radius: 6px; padding: 14px; margin-bottom: 20px; font-size: 14px; color: #856404; }
+.avviso strong { display: block; margin-bottom: 4px; font-size: 15px; }
+input[type=file] { display: block; width: 100%; padding: 10px; border: 2px dashed #ccc; border-radius: 8px; font-size: 14px; margin-bottom: 16px; background: #fafafa; cursor: pointer; }
+input[type=file]:hover { border-color: #2980b9; }
+button { padding: 12px; width: 100%; background: #e74c3c; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: bold; }
+button:hover { background: #c0392b; }
+.msg-ok  { background: #d4edda; color: #155724; padding: 14px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }
+.msg-err { background: #f8d7da; color: #721c24; padding: 14px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }
+.elenco { background: #f9f9f9; border-radius: 8px; padding: 14px; margin-bottom: 20px; font-size: 13px; color: #555; }
+.elenco li { padding: 3px 0; }
+</style>
+</head>
+<body>
+<a class="back" href="/">← Home</a>
+
+<div class="box">
+    <h2>🔄 Ripristino dal Backup</h2>
+    <p class="sottotitolo">Carica un file di backup .json per ripristinare tutti i dati.</p>
+
+    {% if successo %}
+    <div class="msg-ok">✅ {{ successo }}</div>
+    {% endif %}
+
+    {% if errore %}
+    <div class="msg-err">⚠️ {{ errore }}</div>
+    {% endif %}
+
+    <div class="avviso">
+        <strong>⚠️ Attenzione — operazione irreversibile</strong>
+        Questo sovrascrive completamente tutti i dati attuali con quelli del backup.
+        Usalo solo in caso di problemi gravi o dopo aver perso i dati.
+    </div>
+
+    <div class="elenco">
+        <strong style="color:#2c3e50; font-size:14px;">Il backup ripristina:</strong>
+        <ul style="margin-top:8px; padding-left:18px;">
+            <li>Giacenze magazzino (stock)</li>
+            <li>Ordini in produzione</li>
+            <li>Storico completo movimenti</li>
+            <li>Promemoria attivi</li>
+            <li>Giacenze materie prime</li>
+            <li>Storico materie prime</li>
+        </ul>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="backup_file" accept=".json" required>
+        <button type="submit">🔄 Avvia Ripristino</button>
+    </form>
+</div>
+
+</body>
+</html>
