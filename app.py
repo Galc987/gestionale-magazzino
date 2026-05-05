@@ -1087,7 +1087,7 @@ def analisi():
 
 
 # ==================================================
-# BACKUP MANUALE
+# BACKUP E RIPRISTINO
 # ==================================================
 @app.route("/backup_manuale")
 def backup_manuale():
@@ -1119,6 +1119,68 @@ def backup_manuale():
         _json.dump(backup, f, ensure_ascii=False, indent=2)
 
     return send_file(path, as_attachment=True, download_name=nome)
+
+
+@app.route("/ripristino", methods=["GET", "POST"])
+def ripristino():
+    """
+    Pagina per caricare un file JSON di backup e ripristinare il database.
+    """
+    from flask import flash
+    import json as _json
+
+    if request.method == "GET":
+        return render_template("ripristino.html")
+
+    file = request.files.get("backup_file")
+    if not file or not file.filename.endswith(".json"):
+        return render_template("ripristino.html", errore="Seleziona un file .json valido")
+
+    try:
+        data = _json.load(file)
+        tabelle = data.get("tabelle", {})
+
+        conn = db()
+        cur = conn.cursor()
+
+        ripristinate = 0
+        righe_totali = 0
+
+        for tabella, righe in tabelle.items():
+            if tabella not in ["stock","produzione","storico","note","materie_prime","storico_mp"]:
+                continue
+
+            # Svuota la tabella e reimposta la sequenza
+            cur.execute(f"DELETE FROM {tabella}")
+            cur.execute(f"ALTER SEQUENCE {tabella}_id_seq RESTART WITH 1")
+
+            for r in righe:
+                cols = list(r.keys())
+                vals = list(r.values())
+                placeholders = ",".join(["%s"] * len(cols))
+                col_str = ",".join(cols)
+                cur.execute(
+                    f"INSERT INTO {tabella}({col_str}) VALUES({placeholders})",
+                    vals
+                )
+                righe_totali += 1
+
+            # Riallinea la sequenza dopo l'import
+            cur.execute(f"""
+                SELECT setval('{tabella}_id_seq',
+                    COALESCE((SELECT MAX(id) FROM {tabella}), 1))
+            """)
+            ripristinate += 1
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return render_template("ripristino.html",
+            successo=f"Ripristino completato: {ripristinate} tabelle, {righe_totali} righe importate.")
+
+    except Exception as e:
+        return render_template("ripristino.html", errore=f"Errore durante il ripristino: {str(e)}")
 
 
 # ==================================================
