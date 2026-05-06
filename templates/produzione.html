@@ -18,7 +18,7 @@ button:hover { opacity: 0.88; }
 .btn-verde { background: #27ae60; }
 .btn-nota  { background: #e67e22; }
 .btn-del   { background: none; border: none; color: #e74c3c; font-size: 18px; cursor: pointer; padding: 0 6px; width: auto; margin: 0; }
-.riga-ordine { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+.riga-ordine { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 15px; flex-wrap: wrap; }
 .riga-ordine:last-child { border-bottom: none; }
 .toggle-link { text-decoration: none; font-size: 20px; }
 .green { color: #27ae60; font-weight: bold; }
@@ -29,13 +29,90 @@ label  { font-weight: bold; color: #444; }
 .nota-card { background: #fff8e1; border-left: 4px solid #f39c12; border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
 .nota-testo { font-size: 15px; color: #333; flex: 1; white-space: pre-wrap; }
 .nota-data  { font-size: 12px; color: #aaa; margin-top: 4px; }
-.qty-info { font-size: 13px; color: #555; }
-.badge-fardelli { background: #eaf4fb; color: #2980b9; padding: 2px 7px; border-radius: 10px; font-size: 12px; margin-left: 6px; }
-.badge-bt { background: #f0f0f0; color: #555; padding: 2px 7px; border-radius: 10px; font-size: 12px; margin-left: 4px; }
+.badge-fardelli { background: #eaf4fb; color: #2980b9; padding: 2px 7px; border-radius: 10px; font-size: 12px; }
+.badge-bt { background: #f0f0f0; color: #555; padding: 2px 7px; border-radius: 10px; font-size: 12px; }
+.timestamp-done { font-size: 11px; color: #aaa; margin-left: 4px; }
+
+/* Barra sessione — discreta, in cima */
+.sessione-bar {
+    background: #2c3e50; color: white; border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; font-size: 13px;
+}
+.sessione-bar .sess-info { display: flex; align-items: center; gap: 12px; }
+.sess-dot { width: 8px; height: 8px; background: #2ecc71; border-radius: 50%; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.sess-timer { font-size: 16px; font-weight: bold; font-variant-numeric: tabular-nums; }
+.sess-stima { font-size: 12px; color: #aaa; }
+.sess-progress { flex: 1; min-width: 120px; height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
+.sess-progress-fill { height: 100%; background: #2ecc71; border-radius: 2px; transition: width 1s; }
+.sess-progress-fill.over { background: #e74c3c; }
+.btn-stop-sess { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); color: white; padding: 5px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; width: auto; margin: 0; }
+.btn-stop-sess:hover { background: rgba(231,76,60,.6); }
+
+/* Bottone avvia sessione — piccolo e discreto */
+.btn-avvia-sess { background: none; border: 1px solid #ccc; color: #888; padding: 6px 14px; border-radius: 5px; font-size: 12px; cursor: pointer; width: auto; margin: 0; }
+.btn-avvia-sess:hover { border-color: #2c3e50; color: #2c3e50; }
 </style>
+
+{% if sessione_attiva %}
+<script>
+var inizio = new Date("{{ sessione_attiva.data_inizio.isoformat() }}");
+var stimaMin = {{ sessione_attiva.tempo_stimato_min }};
+var stimaMs  = stimaMin * 60 * 1000;
+function tickTimer() {
+    var ora = new Date();
+    var sec = Math.floor((ora - inizio) / 1000);
+    var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+    var el = document.getElementById('sess-timer');
+    if (el) el.textContent =
+        String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    var trascorso = ora - inizio;
+    var perc = Math.min((trascorso/stimaMs)*100, 100);
+    var fill = document.getElementById('sess-fill');
+    if (fill) {
+        fill.style.width = perc + '%';
+        fill.className = 'sess-progress-fill' + (trascorso > stimaMs ? ' over' : '');
+    }
+    var stima_el = document.getElementById('sess-stima');
+    if (stima_el) {
+        if (trascorso > stimaMs) {
+            var extra = Math.floor((trascorso - stimaMs)/60000);
+            stima_el.textContent = '+'+extra+' min oltre stima';
+            stima_el.style.color = '#e74c3c';
+        } else {
+            var rim = Math.ceil((stimaMs - trascorso)/60000);
+            stima_el.textContent = rim+' min al termine';
+        }
+    }
+}
+setInterval(tickTimer, 1000);
+document.addEventListener('DOMContentLoaded', tickTimer);
+</script>
+{% endif %}
 </head>
 <body>
 <a class="back" href="/">← Home</a>
+
+<!-- BARRA SESSIONE (se attiva) -->
+{% if sessione_attiva %}
+<div class="sessione-bar">
+    <div class="sess-info">
+        <div class="sess-dot"></div>
+        <span>Sessione in corso</span>
+        <span class="sess-timer" id="sess-timer">00:00:00</span>
+        <span class="sess-stima" id="sess-stima">—</span>
+    </div>
+    <div class="sess-progress">
+        <div class="sess-progress-fill" id="sess-fill" style="width:0%"></div>
+    </div>
+    <form method="POST" action="/stop_sessione/{{ sessione_attiva.id }}" style="display:inline;">
+        <button type="submit" class="btn-stop-sess"
+            onclick="return confirm('Concludi la sessione?')">⏹ Fine</button>
+    </form>
+</div>
+{% endif %}
 
 <!-- FORM AGGIUNGI NOTA -->
 <div class="box">
@@ -75,7 +152,7 @@ label  { font-weight: bold; color: #444; }
     {% endif %}
 </div>
 
-<!-- PROMEMORIA sopra gli ordini -->
+<!-- PROMEMORIA -->
 {% if note %}
 <div class="box">
     <h2>📌 Promemoria</h2>
@@ -93,7 +170,21 @@ label  { font-weight: bold; color: #444; }
 
 <!-- ORDINI IN PRODUZIONE -->
 <div class="box">
-    <h2>📋 Ordini in Produzione</h2>
+    <h2>📋 Ordini in Produzione
+        {% if not sessione_attiva and rows %}
+        <form method="POST" action="/start_sessione" style="display:inline; margin-left:12px;">
+            <button type="submit" class="btn-avvia-sess">▶ Avvia sessione</button>
+        </form>
+        {% endif %}
+    </h2>
+
+    {% if stima_min and rows %}
+    <div style="font-size:12px; color:#aaa; margin-bottom:12px;">
+        Stima sessione: ~{{ stima_min }} min
+        ({{ "%d:%02d"|format(stima_min // 60, stima_min % 60) }}h)
+    </div>
+    {% endif %}
+
     {% if rows %}
         {% for r in rows %}
         {% set molt = moltiplicatori.get(r.cliente, {}).get(r.prodotto, 1) %}
@@ -104,10 +195,13 @@ label  { font-weight: bold; color: #444; }
             </a>
             <span>
                 <strong>{{ r.cliente }}</strong> — {{ r.prodotto }}
-                <span class="badge-fardelli">{{ fardelli }} fardelli</span>
+                <span class="badge-fardelli">{{ fardelli }} f.</span>
                 <span class="badge-bt">{{ r.qty }} bt</span>
                 {% if r.done == 1 %}
                     <span class="green"> Finito</span>
+                    {% if r.timestamp_done %}
+                    <span class="timestamp-done">{{ r.timestamp_done.strftime('%H:%M') }}</span>
+                    {% endif %}
                 {% else %}
                     <span class="red"> In Produzione</span>
                 {% endif %}
