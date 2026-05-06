@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Calendario</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; padding: 20px; background: #f4f6f8; }
+.back { display: inline-block; margin-bottom: 16px; color: #555; text-decoration: none; font-size: 14px; }
+.back:hover { color: #000; }
+h1 { color: #2c3e50; font-size: 22px; margin-bottom: 16px; }
+
+/* Navigazione settimana */
+.nav-settimana { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.nav-btn { padding: 8px 18px; background: #2c3e50; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }
+.nav-btn:hover { background: #1a252f; }
+.nav-btn.oggi { background: #2980b9; }
+.settimana-label { font-size: 15px; color: #555; font-weight: bold; }
+
+/* Griglia calendario */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 20px; }
+.giorno-col { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.06); min-height: 280px; display: flex; flex-direction: column; }
+.giorno-col.weekend { background: #f8f5ff; }
+.giorno-col.oggi-col { box-shadow: 0 0 0 2px #2980b9, 0 2px 6px rgba(0,0,0,.1); }
+.giorno-header { padding: 10px 10px 8px; border-bottom: 1px solid #f0f0f0; }
+.giorno-nome { font-size: 11px; text-transform: uppercase; color: #888; font-weight: bold; letter-spacing: .5px; }
+.giorno-num { font-size: 22px; font-weight: bold; color: #2c3e50; line-height: 1; margin-top: 2px; }
+.giorno-col.oggi-col .giorno-num { color: #2980b9; }
+.giorno-body { flex: 1; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+
+/* Eventi */
+.evento { border-radius: 5px; padding: 5px 7px; font-size: 12px; cursor: pointer; position: relative; }
+.evento:hover { opacity: .85; }
+.evento-titolo { font-weight: bold; color: white; line-height: 1.2; }
+.evento-ora { font-size: 10px; color: rgba(255,255,255,.8); }
+.cat-imbottigliamento { background: #2980b9; }
+.cat-manutenzione     { background: #e67e22; }
+.cat-pulizia          { background: #27ae60; }
+.cat-consegna         { background: #8e44ad; }
+.cat-ordine           { background: #c0392b; }
+.cat-magazzino        { background: #16a085; }
+.cat-altro            { background: #7f8c8d; }
+.ricorr-badge { font-size: 9px; background: rgba(255,255,255,.25); border-radius: 3px; padding: 1px 4px; margin-top: 2px; display: inline-block; }
+
+/* Pulsante aggiungi */
+.btn-add { margin-top: auto; padding: 5px; background: none; border: 1px dashed #ccc; border-radius: 5px; color: #aaa; font-size: 12px; cursor: pointer; width: 100%; }
+.btn-add:hover { background: #f0f0f0; color: #555; border-color: #999; }
+
+/* Weekend */
+.weekend-box { padding: 8px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.frase-motiv { font-size: 11px; color: #8e44ad; font-style: italic; line-height: 1.4; }
+.nota-weekend-testo { font-size: 12px; color: #555; background: #f0f0f0; border-radius: 5px; padding: 6px; flex: 1; }
+.btn-edit-nota { font-size: 11px; color: #888; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.aperto { display: flex; }
+.modal { background: white; border-radius: 12px; padding: 24px; width: 100%; max-width: 420px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+.modal h3 { color: #2c3e50; margin-bottom: 16px; }
+.modal label { font-size: 13px; font-weight: bold; color: #444; display: block; margin-bottom: 4px; margin-top: 12px; }
+.modal input, .modal select, .modal textarea {
+    width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+}
+.modal textarea { min-height: 60px; resize: vertical; }
+.modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+.btn-salva { flex: 1; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 7px; font-size: 14px; cursor: pointer; font-weight: bold; }
+.btn-annulla { flex: 1; padding: 10px; background: #f0f0f0; color: #555; border: none; border-radius: 7px; font-size: 14px; cursor: pointer; }
+
+/* Modal elimina */
+.modal-del h3 { color: #e74c3c; }
+.btn-elimina-questa { flex: 1; padding: 10px; background: #e67e22; color: white; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-weight: bold; }
+.btn-elimina-tutte  { flex: 1; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-weight: bold; }
+
+/* Legenda */
+.legenda { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+.leg-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<a class="back" href="/">← Home</a>
+<h1>📅 Calendario Settimanale</h1>
+
+<!-- Legenda categorie -->
+<div class="legenda">
+    <div class="leg-item"><div class="leg-dot cat-imbottigliamento"></div>Imbottigliamento</div>
+    <div class="leg-item"><div class="leg-dot cat-manutenzione"></div>Manutenzione</div>
+    <div class="leg-item"><div class="leg-dot cat-pulizia"></div>Pulizia</div>
+    <div class="leg-item"><div class="leg-dot cat-consegna"></div>Consegna</div>
+    <div class="leg-item"><div class="leg-dot cat-ordine"></div>Ordine Cliente</div>
+    <div class="leg-item"><div class="leg-dot cat-magazzino"></div>Magazzino</div>
+    <div class="leg-item"><div class="leg-dot cat-altro"></div>Altro</div>
+</div>
+
+<!-- Navigazione -->
+<div class="nav-settimana">
+    <a class="nav-btn" href="/calendario/mese?offset=0" style="background:#8e44ad;">← Vista mese</a>
+    <a class="nav-btn" href="/calendario?offset={{ offset - 1 }}">← Prec</a>
+    <a class="nav-btn oggi" href="/calendario?offset=0">Oggi</a>
+    <a class="nav-btn" href="/calendario?offset={{ offset + 1 }}">Succ →</a>
+    <span class="settimana-label">
+        Settimana {{ lun.strftime('%d/%m') }} — {{ (lun + timedelta(days=6)).strftime('%d/%m/%Y') }}
+    </span>
+</div>
+
+<!-- Griglia -->
+<div class="cal-grid">
+{% set nomi = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'] %}
+{% for g in giorni %}
+{% set is_weekend = loop.index0 >= 5 %}
+{% set is_oggi = g == oggi %}
+<div class="giorno-col {% if is_weekend %}weekend{% endif %} {% if is_oggi %}oggi-col{% endif %}">
+    <div class="giorno-header">
+        <div class="giorno-nome">{{ nomi[loop.index0] }}</div>
+        <div class="giorno-num">{{ g.day }}</div>
+    </div>
+
+    {% if is_weekend %}
+    <!-- Weekend: frase + appunti -->
+    <div class="weekend-box">
+        {% if loop.index0 == 5 %}
+        <div class="frase-motiv">"{{ frase }}"</div>
+        <hr style="border:none;border-top:1px solid #e0e0e0;">
+        <div style="font-size:11px;color:#888;margin-bottom:4px;">📝 Appunti settimana</div>
+        {% if nota_weekend %}
+        <div class="nota-weekend-testo">{{ nota_weekend.testo }}</div>
+        {% endif %}
+        <button class="btn-edit-nota" onclick="apriNotaWeekend()">
+            {% if nota_weekend %}Modifica nota{% else %}+ Aggiungi nota{% endif %}
+        </button>
+        {% endif %}
+    </div>
+    {% else %}
+    <!-- Giorni lavorativi: eventi -->
+    <div class="giorno-body">
+        {% set evs = eventi[g.isoformat()] %}
+        {% for ev in evs %}
+        {% set cat_css = ev.categoria | lower | replace(' ', '') %}
+        <div class="evento cat-{{ cat_css }}"
+             onclick="apriElimina({{ ev.id }}, '{{ ev.titolo | replace("'", "\\'") }}', '{{ g.isoformat() }}', '{{ ev.ricorrenza }}')">
+            <div class="evento-ora">{{ ev.ora_inizio }}</div>
+            <div class="evento-titolo">{{ ev.titolo }}</div>
+            {% if ev.note %}
+            <div style="font-size:10px; color:rgba(255,255,255,.75); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ ev.note }}</div>
+            {% endif %}
+            {% if ev.ricorrenza != 'nessuna' %}
+            <div class="ricorr-badge">
+                {% if ev.ricorrenza == 'settimanale' %}↻ sett{% else %}↻ 2sett{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button class="btn-add" onclick="apriAggiungi('{{ g.isoformat() }}')">+ Aggiungi</button>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+</div>
+
+<!-- MODAL AGGIUNGI EVENTO -->
+<div class="modal-overlay" id="modalAggiungi">
+    <div class="modal">
+        <h3>➕ Aggiungi Evento</h3>
+        <form method="POST" action="/aggiungi_evento">
+            <input type="hidden" name="offset" value="{{ offset }}">
+            <input type="hidden" name="data_evento" id="inputData">
+            <label>Titolo</label>
+            <input type="text" name="titolo" placeholder="Es. Imbottigliamento Roberto" required>
+            <label>Categoria</label>
+            <select name="categoria">
+                <option value="Imbottigliamento">🔵 Imbottigliamento</option>
+                <option value="Manutenzione">🟠 Manutenzione</option>
+                <option value="Pulizia">🟢 Pulizia</option>
+                <option value="Consegna">🟣 Consegna</option>
+                <option value="Ordine">🔴 Ordine Cliente</option>
+                <option value="Magazzino">🟦 Magazzino</option>
+                <option value="Altro">⚪ Altro</option>
+            </select>
+            <label>Ora inizio</label>
+            <input type="time" name="ora_inizio" value="08:00">
+            <label>Ricorrenza</label>
+            <select name="ricorrenza">
+                <option value="nessuna">Solo questa volta</option>
+                <option value="settimanale">Ogni settimana (stesso giorno)</option>
+                <option value="bisettimanale">Ogni due settimane</option>
+            </select>
+            <label>Note (opzionale)</label>
+            <textarea name="note" placeholder="Scrivi direttive, dettagli, istruzioni per gli operatori..."></textarea>
+            <div class="modal-btns">
+                <button type="button" class="btn-annulla" onclick="chiudiModal('modalAggiungi')">Annulla</button>
+                <button type="submit" class="btn-salva">Salva</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL ELIMINA EVENTO -->
+<div class="modal-overlay" id="modalElimina">
+    <div class="modal modal-del">
+        <h3>🗑️ Elimina evento</h3>
+        <p id="elimina-titolo" style="color:#555; margin-bottom:16px; font-size:15px;"></p>
+        <form method="POST" action="/elimina_evento">
+            <input type="hidden" name="offset" value="{{ offset }}">
+            <input type="hidden" name="evento_id" id="del-evento-id">
+            <input type="hidden" name="data_evento" id="del-data-evento">
+            <div class="modal-btns" id="del-btns-tutti">
+                <button type="button" class="btn-annulla" onclick="chiudiModal('modalElimina')">Annulla</button>
+                <button type="submit" name="tipo" value="questa" class="btn-elimina-questa">Solo questa volta</button>
+                <button type="submit" name="tipo" value="tutte" class="btn-elimina-tutte">Tutte le future</button>
+            </div>
+            <div class="modal-btns" id="del-btns-singolo" style="display:none;">
+                <button type="button" class="btn-annulla" onclick="chiudiModal('modalElimina')">Annulla</button>
+                <button type="submit" name="tipo" value="tutte" class="btn-elimina-tutte">Elimina</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL NOTA WEEKEND -->
+<div class="modal-overlay" id="modalNota">
+    <div class="modal">
+        <h3>📝 Appunti settimana</h3>
+        <form method="POST" action="/salva_nota_weekend">
+            <input type="hidden" name="offset" value="{{ offset }}">
+            <input type="hidden" name="settimana_inizio" value="{{ lun.isoformat() }}">
+            <textarea name="testo" placeholder="Appunti, promemoria, note per la settimana..." style="min-height:120px;">{{ nota_weekend.testo if nota_weekend else '' }}</textarea>
+            <div class="modal-btns">
+                <button type="button" class="btn-annulla" onclick="chiudiModal('modalNota')">Annulla</button>
+                <button type="submit" class="btn-salva">Salva</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function apriAggiungi(data) {
+    document.getElementById('inputData').value = data;
+    document.getElementById('modalAggiungi').classList.add('aperto');
+}
+function apriElimina(id, titolo, data, ricorr) {
+    document.getElementById('del-evento-id').value = id;
+    document.getElementById('del-data-evento').value = data;
+    document.getElementById('elimina-titolo').textContent = '"' + titolo + '"';
+    if (ricorr !== 'nessuna') {
+        document.getElementById('del-btns-tutti').style.display = 'flex';
+        document.getElementById('del-btns-singolo').style.display = 'none';
+    } else {
+        document.getElementById('del-btns-tutti').style.display = 'none';
+        document.getElementById('del-btns-singolo').style.display = 'flex';
+    }
+    document.getElementById('modalElimina').classList.add('aperto');
+}
+function apriNotaWeekend() {
+    document.getElementById('modalNota').classList.add('aperto');
+}
+function chiudiModal(id) {
+    document.getElementById(id).classList.remove('aperto');
+}
+// Chiudi cliccando fuori
+document.querySelectorAll('.modal-overlay').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+        if (e.target === el) el.classList.remove('aperto');
+    });
+});
+</script>
+
+</body>
+</html>
