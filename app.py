@@ -1,4 +1,10 @@
 from flask import Flask, render_template, request, redirect, send_file, session
+from zoneinfo import ZoneInfo
+ROME = ZoneInfo("Europe/Rome")
+
+def now_rome():
+    from datetime import datetime
+    return datetime.now(ROME).replace(tzinfo=None)
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -434,7 +440,57 @@ def _conta_alert_mp():
 # ==================================================
 @app.route("/")
 def home():
-    return render_template("home.html", alert_mp=_get_alert_mp())
+    from datetime import timedelta
+    oggi = now_rome().date()
+    lun = oggi - __import__('datetime').timedelta(days=oggi.weekday())
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT * FROM calendario_eventi
+        WHERE (ricorrenza='nessuna' AND data_evento>=%s AND data_evento<=%s)
+           OR ricorrenza IN ('settimanale','bisettimanale')
+        ORDER BY data_evento, ora_inizio
+    """, (lun, lun + timedelta(days=6)))
+    tutti = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # Costruisce dict giorni settimana
+    giorni_sett = [lun + timedelta(days=i) for i in range(7)]
+    eventi_home = {}
+    for g in giorni_sett:
+        eventi_home[g.isoformat()] = []
+
+    conn2 = db()
+    cur2 = conn2.cursor()
+    for e in tutti:
+        if e["ricorrenza"] == "nessuna":
+            k = e["data_evento"].isoformat()
+            if k in eventi_home:
+                eventi_home[k].append(dict(e))
+        else:
+            for g in giorni_sett:
+                if g.weekday() == e["data_evento"].weekday() and g >= e["data_evento"]:
+                    if e["ricorrenza"] == "bisettimanale":
+                        if ((g - e["data_evento"]).days // 7) % 2 != 0:
+                            continue
+                    cur2.execute(
+                        "SELECT id FROM calendario_eccezioni WHERE evento_id=%s AND data_eccezione=%s",
+                        (e["id"], g)
+                    )
+                    if not cur2.fetchone():
+                        ev = dict(e); ev["data_evento"] = g
+                        eventi_home[g.isoformat()].append(ev)
+    cur2.close()
+    conn2.close()
+
+    return render_template("home.html",
+        alert_mp=_get_alert_mp(),
+        giorni_sett=giorni_sett,
+        eventi_home=eventi_home,
+        oggi=oggi,
+    )
 
 
 # ==================================================
@@ -531,32 +587,49 @@ def produzione():
     cur.close()
     conn.close()
 
-    # Calcola stima per gli ordini correnti
+    # Calcola stima - solo ordini NON ancora completati (done=0)
     stima_min = 0
+    dettaglio_stima = []
     prodotti_unici = set()
     formati = set()
+
     for r in righe:
+        if r["done"] == 1:
+            continue
         molt = MOLTIPLICATORI.get(r["cliente"], {}).get(r["prodotto"], 1)
         fardelli = r["qty"] / molt
         formato = "2L" if "2L" in r["prodotto"] else "1L"
         fard_ped = PEDANE_CONFIG.get(r["cliente"], {}).get(formato, 64)
+        mins = 0
         if fard_ped:
             pedane = fardelli / fard_ped
-            stima_min += pedane * get_tempo_pedana(r["cliente"], formato)
+            mins = round(pedane * get_tempo_pedana(r["cliente"], formato))
+            stima_min += mins
         prodotti_unici.add(r["prodotto"])
         formati.add(formato)
+        dettaglio_stima.append({
+            "cliente": r["cliente"],
+            "prodotto": r["prodotto"],
+            "fardelli": round(fardelli, 1),
+            "mins": mins,
+        })
 
-    # Fissi + cambi etichetta (3 min per prodotto unico) + cambio formato
-    stima_min += 30 + 60  # riscaldamento + pranzo
-    stima_min += len(prodotti_unici) * 3  # cambio etichetta 3 min
-    if len(formati) > 1:
-        stima_min += 10  # cambio formato
-    stima_min = round(stima_min * 1.075)  # imprevisti
+    fissi_min = 90  # riscaldamento 30 + pranzo 60
+    cambi_et_min = len(prodotti_unici) * 3
+    cambio_fmt_min = 10 if len(formati) > 1 else 0
+    base = stima_min + fissi_min + cambi_et_min + cambio_fmt_min
+    imprevisti_min = round(base * 0.075)
+    stima_min = round(base * 1.075)
 
     return render_template("produzione.html", clients=clients, rows=righe,
                            note=note, moltiplicatori=MOLTIPLICATORI,
                            sessione_attiva=sessione_attiva,
-                           stima_min=stima_min)
+                           stima_min=stima_min,
+                           dettaglio_stima=dettaglio_stima,
+                           fissi_min=fissi_min,
+                           cambi_et_min=cambi_et_min,
+                           cambio_fmt_min=cambio_fmt_min,
+                           imprevisti_min=imprevisti_min)
 
 
 @app.route("/nuova_produzione", methods=["POST"])
@@ -587,7 +660,6 @@ def nuova_produzione():
 
 @app.route("/toggle/<int:id>")
 def toggle(id):
-    from datetime import datetime
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT done FROM produzione WHERE id=%s", (id,))
@@ -596,7 +668,7 @@ def toggle(id):
     if nuovo == 1:
         cur.execute(
             "UPDATE produzione SET done=%s, timestamp_done=%s WHERE id=%s",
-            (nuovo, datetime.now(), id)
+            (nuovo, now_rome(), id)
         )
     else:
         cur.execute(
@@ -1548,7 +1620,7 @@ def start_sessione():
         VALUES (%s,%s,%s,%s,%s,'in_corso')
         RETURNING id
     """, (
-        datetime.now(),
+        now_rome(),
         _json.dumps(dettagli),
         1 if len(formati) > 1 else 0,
         len(prodotti_unici),
@@ -1568,7 +1640,7 @@ def stop_sessione(sid):
     cur.execute("SELECT * FROM sessioni_cronometro WHERE id=%s", (sid,))
     sess = cur.fetchone()
     if sess:
-        ora_fine = datetime.now()
+        ora_fine = now_rome()
         minuti_reali = round((ora_fine - sess["data_inizio"]).total_seconds() / 60)
         cur.execute("""
             UPDATE sessioni_cronometro
@@ -1591,7 +1663,7 @@ def backup_manuale():
 
     conn = db()
     cur = conn.cursor()
-    tabelle = ["stock", "produzione", "storico", "note", "materie_prime", "storico_mp"]
+    tabelle = ["stock", "produzione", "storico", "note", "materie_prime", "storico_mp", "calendario_eventi", "calendario_eccezioni", "calendario_note_weekend", "sessioni_cronometro"]
     backup = {"data_backup": _dt.now().isoformat(), "tabelle": {}}
 
     for tabella in tabelle:
@@ -1642,7 +1714,7 @@ def ripristino():
         righe_totali = 0
 
         for tabella, righe in tabelle.items():
-            if tabella not in ["stock","produzione","storico","note","materie_prime","storico_mp"]:
+            if tabella not in ["stock","produzione","storico","note","materie_prime","storico_mp","calendario_eventi","calendario_eccezioni","calendario_note_weekend","sessioni_cronometro"]:
                 continue
 
             # Svuota la tabella e reimposta la sequenza
