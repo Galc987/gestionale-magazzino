@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Calendario — {{ mese_nome }} {{ anno }}</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; padding: 24px 20px; background: #f4f6f8; }
+.back { display: inline-block; margin-bottom: 16px; color: #555; text-decoration: none; font-size: 14px; }
+.back:hover { color: #000; }
+h1 { color: #2c3e50; font-size: 22px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+
+.nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.nav-btn { padding: 8px 18px; background: #2c3e50; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }
+.nav-btn:hover { background: #1a252f; }
+.nav-btn.oggi { background: #2980b9; }
+
+/* Griglia mese */
+.cal-mese { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+.cal-mese th { padding: 10px; background: #2c3e50; color: white; font-size: 13px; text-align: center; font-weight: bold; }
+.cal-mese th.weekend-h { background: #3d5166; }
+.giorno-cella { vertical-align: top; padding: 6px; border: 1px solid #f0f0f0; height: 110px; cursor: pointer; transition: background .15s; }
+.giorno-cella:hover { background: #f0f8ff; }
+.giorno-cella.fuori-mese { background: #fafafa; }
+.giorno-cella.fuori-mese .num-giorno { color: #ddd; }
+.giorno-cella.oggi-cella { background: #eaf4fb; }
+.giorno-cella.weekend-cella { background: #f8f5ff; }
+
+.num-giorno { font-size: 14px; font-weight: bold; color: #2c3e50; margin-bottom: 4px; display: inline-block; }
+.oggi-cella .num-giorno { background: #2980b9; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+
+/* Mini eventi nel mese */
+.mini-ev { font-size: 11px; padding: 2px 5px; border-radius: 3px; margin-bottom: 2px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.mini-ev.cat-imbottigliamento { background: #2980b9; }
+.mini-ev.cat-manutenzione     { background: #e67e22; }
+.mini-ev.cat-pulizia          { background: #27ae60; }
+.mini-ev.cat-consegna         { background: #8e44ad; }
+.mini-ev.cat-ordine           { background: #c0392b; }
+.mini-ev.cat-magazzino        { background: #16a085; }
+.mini-ev.cat-altro            { background: #7f8c8d; }
+.piu-eventi { font-size: 10px; color: #aaa; padding: 1px 4px; }
+
+/* Link settimana */
+.link-settimana { font-size: 10px; color: #2980b9; text-decoration: none; display: block; margin-bottom: 3px; }
+.link-settimana:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<a class="back" href="/">← Home</a>
+
+<h1>
+    📅 {{ mese_nome }} {{ anno }}
+</h1>
+
+<div class="nav">
+    <a class="nav-btn" href="/calendario/mese?offset={{ offset - 1 }}">← Mese prec</a>
+    <a class="nav-btn oggi" href="/calendario/mese?offset=0">Oggi</a>
+    <a class="nav-btn" href="/calendario/mese?offset={{ offset + 1 }}">Mese succ →</a>
+    <a class="nav-btn" href="/calendario?offset=0" style="background:#8e44ad;">Vista settimana →</a>
+</div>
+
+<table class="cal-mese">
+    <thead>
+        <tr>
+            <th>Lunedì</th>
+            <th>Martedì</th>
+            <th>Mercoledì</th>
+            <th>Giovedì</th>
+            <th>Venerdì</th>
+            <th class="weekend-h">Sabato</th>
+            <th class="weekend-h">Domenica</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for settimana in settimane %}
+        <tr>
+            {% for g in settimana %}
+            {% set fuori = g < primo_giorno or g > ultimo_giorno %}
+            {% set is_oggi = g == oggi %}
+            {% set is_weekend = loop.index0 >= 5 %}
+            {% set evs = eventi_mese.get(g.isoformat(), []) %}
+            {% set lun_offset = ((g - oggi).days // 7) if g.weekday() == 0 else ((g - oggi - timedelta(days=g.weekday())).days // 7) %}
+            <td class="giorno-cella {% if fuori %}fuori-mese{% elif is_oggi %}oggi-cella{% elif is_weekend %}weekend-cella{% endif %}"
+                onclick="window.location='/calendario?offset={{ ((g - primo_giorno).days // 7) if not fuori else 0 }}&goto={{ g.isoformat() }}'">
+
+                {% if not fuori and g.weekday() == 0 %}
+                <a class="link-settimana"
+                   href="/calendario?offset={{ ((g - oggi).days // 7) if (g - oggi).days >= 0 else ((g - oggi).days // 7) }}"
+                   onclick="event.stopPropagation()">↗ Vista sett.</a>
+                {% endif %}
+
+                <span class="num-giorno">{{ g.day }}</span>
+
+                {% if not fuori %}
+                {% for ev in evs[:3] %}
+                {% set cat_css = ev.categoria | lower | replace(' ', '') %}
+                <div class="mini-ev cat-{{ cat_css }}" title="{{ ev.titolo }}">
+                    {{ ev.ora_inizio }} {{ ev.titolo }}
+                </div>
+                {% endfor %}
+                {% if evs | length > 3 %}
+                <div class="piu-eventi">+{{ evs|length - 3 }} altri</div>
+                {% endif %}
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div style="margin-top:14px; font-size:13px; color:#888;">
+    💡 Clicca su un giorno per aprire la vista settimana — clicca "↗ Vista sett." per vedere l'intera settimana.
+</div>
+
+</body>
+</html>
