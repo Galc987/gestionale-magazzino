@@ -179,9 +179,53 @@ document.addEventListener('DOMContentLoaded', tickTimer);
     </h2>
 
     {% if stima_min and rows %}
-    <div style="font-size:12px; color:#aaa; margin-bottom:12px;">
-        Stima sessione: ~{{ stima_min }} min
-        ({{ "%d:%02d"|format(stima_min // 60, stima_min % 60) }}h)
+    <div style="background:#f9f9f9; border-radius:8px; padding:12px; margin-bottom:14px; font-size:13px; color:#555;">
+        <div style="font-weight:bold; color:#2c3e50; margin-bottom:8px;">
+            ⏱ Stima sessione rimanente:
+            <strong style="color:#2980b9;">
+                ~{{ stima_min }} min
+                ({{ "%d:%02d"|format(stima_min // 60, stima_min % 60) }}h)
+            </strong>
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <tr style="color:#aaa; border-bottom:1px solid #eee;">
+                <th style="text-align:left; padding:3px 6px; font-weight:normal;">Voce</th>
+                <th style="text-align:right; padding:3px 6px; font-weight:normal;">Min</th>
+            </tr>
+            <tr style="border-bottom:1px solid #f5f5f5;">
+                <td style="padding:3px 6px;">🔧 Lavaggio/riscaldamento + pausa pranzo</td>
+                <td style="text-align:right; padding:3px 6px; font-weight:bold;">{{ fissi_min }}</td>
+            </tr>
+            {% for d in dettaglio_stima %}
+            <tr style="border-bottom:1px solid #f5f5f5;">
+                <td style="padding:3px 6px;">
+                    <span style="background:#eaf4fb;color:#2980b9;padding:1px 5px;border-radius:4px;font-size:11px;">{{ d.cliente }}</span>
+                    {{ d.prodotto }} — {{ d.fardelli }} fardelli
+                </td>
+                <td style="text-align:right; padding:3px 6px; font-weight:bold;">{{ d.mins }}</td>
+            </tr>
+            {% endfor %}
+            {% if cambi_et_min > 0 %}
+            <tr style="border-bottom:1px solid #f5f5f5;">
+                <td style="padding:3px 6px;">🏷️ Cambi etichetta (×3 min)</td>
+                <td style="text-align:right; padding:3px 6px; font-weight:bold;">{{ cambi_et_min }}</td>
+            </tr>
+            {% endif %}
+            {% if cambio_fmt_min > 0 %}
+            <tr style="border-bottom:1px solid #f5f5f5;">
+                <td style="padding:3px 6px;">🔄 Cambio formato 2L↔1L</td>
+                <td style="text-align:right; padding:3px 6px; font-weight:bold;">{{ cambio_fmt_min }}</td>
+            </tr>
+            {% endif %}
+            <tr style="border-bottom:1px solid #f5f5f5;">
+                <td style="padding:3px 6px; color:#aaa;">⚡ Imprevisti (+7.5%)</td>
+                <td style="text-align:right; padding:3px 6px; color:#aaa;">{{ imprevisti_min }}</td>
+            </tr>
+            <tr style="background:#eaf4fb; font-weight:bold;">
+                <td style="padding:4px 6px; border-radius:0 0 0 6px;">Totale stimato</td>
+                <td style="text-align:right; padding:4px 6px; color:#2980b9; border-radius:0 0 6px 0;">{{ stima_min }} min</td>
+            </tr>
+        </table>
     </div>
     {% endif %}
 
