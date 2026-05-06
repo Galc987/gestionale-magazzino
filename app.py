@@ -32,8 +32,13 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS produzione (
             id SERIAL PRIMARY KEY, cliente TEXT, prodotto TEXT,
-            qty INTEGER, done INTEGER DEFAULT 0
+            qty INTEGER, done INTEGER DEFAULT 0,
+            timestamp_done TIMESTAMP
         )
+    """)
+    # Aggiunge colonna timestamp_done se non esiste (per DB già esistenti)
+    cur.execute("""
+        ALTER TABLE produzione ADD COLUMN IF NOT EXISTS timestamp_done TIMESTAMP
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS storico (
@@ -56,6 +61,45 @@ def init_db():
         CREATE TABLE IF NOT EXISTS storico_mp (
             id SERIAL PRIMARY KEY, cliente TEXT, materiale TEXT,
             qty INTEGER, tipo TEXT, data TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS calendario_eventi (
+            id SERIAL PRIMARY KEY,
+            data_evento DATE NOT NULL,
+            titolo TEXT NOT NULL,
+            categoria TEXT DEFAULT 'Altro',
+            ricorrenza TEXT DEFAULT 'nessuna',
+            ora_inizio TEXT DEFAULT '08:00',
+            note TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS calendario_eccezioni (
+            id SERIAL PRIMARY KEY,
+            evento_id INTEGER REFERENCES calendario_eventi(id) ON DELETE CASCADE,
+            data_eccezione DATE NOT NULL,
+            UNIQUE(evento_id, data_eccezione)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS calendario_note_weekend (
+            settimana_inizio DATE PRIMARY KEY,
+            testo TEXT DEFAULT ''
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS sessioni_cronometro (
+            id SERIAL PRIMARY KEY,
+            data_inizio TIMESTAMP NOT NULL,
+            data_fine TIMESTAMP,
+            ordini_json TEXT DEFAULT '[]',
+            cambi_formato INTEGER DEFAULT 0,
+            cambi_etichetta INTEGER DEFAULT 0,
+            tempo_stimato_min INTEGER DEFAULT 0,
+            tempo_reale_min INTEGER,
+            stato TEXT DEFAULT 'in_corso'
         )
     """)
     conn.commit()
@@ -151,6 +195,40 @@ def _build_etichette(cliente):
     return [f"Etichetta {p}" for p in clients[cliente]]
 
 ETICHETTE_CLIENTI = {c: _build_etichette(c) for c in clients}
+
+# Fardelli per pedana per formato
+PEDANE_CONFIG = {
+    "Roberto":    {"2L": 64, "1L": 60},
+    "Francesco":  {"2L": 64, "1L": 60},
+    "Emanuele":   {"2L": 48, "1L": 48},
+    "Mazzarrone": {"2L": 80, "1L": 60},
+    "Sisa":       {"2L": 64, "1L": None},
+}
+
+# Tempi produzione per pedana (minuti) per formato
+TEMPI_PEDANA = {
+    "2L_64": 30,  # Roberto, Francesco, Sisa
+    "2L_48": 35,  # Emanuele
+    "2L_80": 45,  # Mazzarrone
+    "1L_60": 30,  # Roberto, Francesco, Mazzarrone
+    "1L_48": 35,  # Emanuele
+}
+
+def get_tempo_pedana(cliente, formato):
+    """Ritorna minuti per pedana dato cliente e formato (2L o 1L)"""
+    fard_ped = PEDANE_CONFIG.get(cliente, {}).get(formato)
+    if not fard_ped:
+        return 30
+    key = f"{formato}_{fard_ped}"
+    return TEMPI_PEDANA.get(key, 30)
+
+def calcola_pedane(cliente, prodotto, qty_fardelli):
+    """Calcola pedane da fardelli"""
+    formato = "2L" if "2L" in prodotto else "1L"
+    fard_ped = PEDANE_CONFIG.get(cliente, {}).get(formato, 64)
+    if not fard_ped:
+        return 0
+    return qty_fardelli / fard_ped
 
 CLIENTI_CONFIG = {
     "Roberto": {
@@ -444,10 +522,41 @@ def produzione():
     righe = cur.fetchall()
     cur.execute("SELECT * FROM note ORDER BY data DESC")
     note = cur.fetchall()
+    # Sessione cronometro attiva
+    cur.execute("""
+        SELECT * FROM sessioni_cronometro
+        WHERE stato='in_corso' ORDER BY data_inizio DESC LIMIT 1
+    """)
+    sessione_attiva = cur.fetchone()
     cur.close()
     conn.close()
+
+    # Calcola stima per gli ordini correnti
+    stima_min = 0
+    prodotti_unici = set()
+    formati = set()
+    for r in righe:
+        molt = MOLTIPLICATORI.get(r["cliente"], {}).get(r["prodotto"], 1)
+        fardelli = r["qty"] / molt
+        formato = "2L" if "2L" in r["prodotto"] else "1L"
+        fard_ped = PEDANE_CONFIG.get(r["cliente"], {}).get(formato, 64)
+        if fard_ped:
+            pedane = fardelli / fard_ped
+            stima_min += pedane * get_tempo_pedana(r["cliente"], formato)
+        prodotti_unici.add(r["prodotto"])
+        formati.add(formato)
+
+    # Fissi + cambi etichetta (3 min per prodotto unico) + cambio formato
+    stima_min += 30 + 60  # riscaldamento + pranzo
+    stima_min += len(prodotti_unici) * 3  # cambio etichetta 3 min
+    if len(formati) > 1:
+        stima_min += 10  # cambio formato
+    stima_min = round(stima_min * 1.075)  # imprevisti
+
     return render_template("produzione.html", clients=clients, rows=righe,
-                           note=note, moltiplicatori=MOLTIPLICATORI)
+                           note=note, moltiplicatori=MOLTIPLICATORI,
+                           sessione_attiva=sessione_attiva,
+                           stima_min=stima_min)
 
 
 @app.route("/nuova_produzione", methods=["POST"])
@@ -478,12 +587,22 @@ def nuova_produzione():
 
 @app.route("/toggle/<int:id>")
 def toggle(id):
+    from datetime import datetime
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT done FROM produzione WHERE id=%s", (id,))
     row = cur.fetchone()
     nuovo = 0 if row["done"] == 1 else 1
-    cur.execute("UPDATE produzione SET done=%s WHERE id=%s", (nuovo, id))
+    if nuovo == 1:
+        cur.execute(
+            "UPDATE produzione SET done=%s, timestamp_done=%s WHERE id=%s",
+            (nuovo, datetime.now(), id)
+        )
+    else:
+        cur.execute(
+            "UPDATE produzione SET done=%s, timestamp_done=NULL WHERE id=%s",
+            (nuovo, id)
+        )
     conn.commit()
     cur.close()
     conn.close()
@@ -1084,6 +1203,382 @@ def analisi():
         data_a=data_a,
         giorni_periodo=giorni_periodo,
     )
+
+
+# ==================================================
+# CALENDARIO
+# ==================================================
+
+@app.route("/calendario/mese")
+def calendario_mese():
+    from datetime import datetime, timedelta, date
+    oggi = datetime.now().date()
+    offset = int(request.args.get("offset", "0"))
+
+    # Primo giorno del mese corrente + offset mesi
+    anno = oggi.year
+    mese = oggi.month + offset
+    while mese > 12: mese -= 12; anno += 1
+    while mese < 1:  mese += 12; anno -= 1
+
+    primo_giorno = date(anno, mese, 1)
+    if mese == 12:
+        ultimo_giorno = date(anno+1, 1, 1) - timedelta(days=1)
+    else:
+        ultimo_giorno = date(anno, mese+1, 1) - timedelta(days=1)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT * FROM calendario_eventi
+        WHERE (ricorrenza='nessuna' AND data_evento >= %s AND data_evento <= %s)
+           OR ricorrenza IN ('settimanale','bisettimanale')
+        ORDER BY data_evento
+    """, (primo_giorno, ultimo_giorno))
+    tutti_eventi = cur.fetchall()
+
+    # Costruisce dict giorno -> lista eventi
+    eventi_mese = {}
+    d = primo_giorno
+    while d <= ultimo_giorno:
+        eventi_mese[d.isoformat()] = []
+        d += timedelta(days=1)
+
+    for e in tutti_eventi:
+        if e["ricorrenza"] == "nessuna":
+            key = e["data_evento"].isoformat()
+            if key in eventi_mese:
+                eventi_mese[key].append(dict(e))
+        else:
+            d = primo_giorno
+            while d <= ultimo_giorno:
+                if d.weekday() == e["data_evento"].weekday() and d >= e["data_evento"]:
+                    if e["ricorrenza"] == "bisettimanale":
+                        diff = (d - e["data_evento"]).days // 7
+                        if diff % 2 != 0:
+                            d += timedelta(days=1); continue
+                    cur.execute("""
+                        SELECT id FROM calendario_eccezioni
+                        WHERE evento_id=%s AND data_eccezione=%s
+                    """, (e["id"], d))
+                    if not cur.fetchone():
+                        ev = dict(e); ev["data_evento"] = d
+                        eventi_mese[d.isoformat()].append(ev)
+                d += timedelta(days=1)
+
+    cur.close()
+    conn.close()
+
+    # Costruisce la griglia del mese (settimane)
+    # Inizia dal lunedì della settimana del primo giorno
+    start = primo_giorno - timedelta(days=primo_giorno.weekday())
+    settimane = []
+    cur_d = start
+    while cur_d <= ultimo_giorno or len(settimane) < 5:
+        settimana = []
+        for _ in range(7):
+            settimana.append(cur_d)
+            cur_d += timedelta(days=1)
+        settimane.append(settimana)
+        if cur_d > ultimo_giorno and len(settimane) >= 4:
+            break
+
+    from datetime import timedelta as td
+    return render_template("calendario_mese.html",
+        settimane=settimane,
+        eventi_mese=eventi_mese,
+        primo_giorno=primo_giorno,
+        ultimo_giorno=ultimo_giorno,
+        oggi=oggi,
+        offset=offset,
+        mese_nome=["","Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno",
+                   "Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"][mese],
+        anno=anno,
+        mese=mese,
+        timedelta=td,
+    )
+
+
+@app.route("/calendario")
+def calendario():
+    from datetime import datetime, timedelta
+    oggi = datetime.now().date()
+    # Lunedi della settimana corrente
+    offset = request.args.get("offset", "0")
+    try:
+        offset = int(offset)
+    except:
+        offset = 0
+    lun = oggi - timedelta(days=oggi.weekday()) + timedelta(weeks=offset)
+    giorni = [lun + timedelta(days=i) for i in range(7)]
+
+    conn = db()
+    cur = conn.cursor()
+
+    # Carica eventi della settimana (incluse ricorrenze)
+    cur.execute("""
+        SELECT * FROM calendario_eventi
+        WHERE (
+            (ricorrenza = 'nessuna' AND data_evento >= %s AND data_evento <= %s)
+            OR ricorrenza IN ('settimanale', 'bisettimanale')
+        )
+        ORDER BY data_evento, ora_inizio
+    """, (lun, lun + timedelta(days=6)))
+    tutti_eventi = cur.fetchall()
+
+    # Filtra ricorrenze per questa settimana
+    eventi_settimana = {}
+    for g in giorni:
+        eventi_settimana[g.isoformat()] = []
+
+    for e in tutti_eventi:
+        if e["ricorrenza"] == "nessuna":
+            key = e["data_evento"].isoformat()
+            if key in eventi_settimana:
+                eventi_settimana[key].append(dict(e))
+        elif e["ricorrenza"] == "settimanale":
+            dow_evento = e["data_evento"].weekday()
+            for g in giorni:
+                if g.weekday() == dow_evento and g >= e["data_evento"]:
+                    # Controlla se non è stato eliminato per questa data
+                    cur.execute("""
+                        SELECT id FROM calendario_eccezioni
+                        WHERE evento_id = %s AND data_eccezione = %s
+                    """, (e["id"], g))
+                    if not cur.fetchone():
+                        ev = dict(e)
+                        ev["data_evento"] = g
+                        eventi_settimana[g.isoformat()].append(ev)
+        elif e["ricorrenza"] == "bisettimanale":
+            dow_evento = e["data_evento"].weekday()
+            delta = (lun - e["data_evento"]).days
+            settimane_passate = delta // 7
+            for g in giorni:
+                if g.weekday() == dow_evento and g >= e["data_evento"]:
+                    diff = (g - e["data_evento"]).days // 7
+                    if diff % 2 == 0:
+                        cur.execute("""
+                            SELECT id FROM calendario_eccezioni
+                            WHERE evento_id = %s AND data_eccezione = %s
+                        """, (e["id"], g))
+                        if not cur.fetchone():
+                            ev = dict(e)
+                            ev["data_evento"] = g
+                            eventi_settimana[g.isoformat()].append(ev)
+
+    # Appunti weekend
+    cur.execute("""
+        SELECT * FROM calendario_note_weekend
+        WHERE settimana_inizio = %s
+    """, (lun,))
+    nota_weekend = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    # Frase motivazionale della settimana
+    frasi = [
+        "Chi lavora con passione non conta le ore.",
+        "Ogni bottiglia racconta una storia di cura e dedizione.",
+        "La qualità non è mai un caso, è sempre il risultato di uno sforzo intelligente.",
+        "Il vino è poesia in bottiglia.",
+        "Lavorare bene oggi è il miglior investimento per domani.",
+        "La costanza batte il talento quando il talento non si impegna.",
+        "Ogni giorno è una nuova occasione per fare meglio.",
+        "Il successo non arriva per caso, si costruisce giorno per giorno.",
+        "Chi non si ferma vince.",
+        "La qualità si ricorda molto dopo che il prezzo è stato dimenticato.",
+    ]
+    from datetime import date
+    num_settimana = lun.isocalendar()[1]
+    frase = frasi[num_settimana % len(frasi)]
+
+    from datetime import timedelta as td
+    return render_template("calendario.html",
+        giorni=giorni,
+        eventi=eventi_settimana,
+        offset=offset,
+        oggi=oggi,
+        nota_weekend=nota_weekend,
+        frase=frase,
+        lun=lun,
+        timedelta=td,
+    )
+
+
+@app.route("/aggiungi_evento", methods=["POST"])
+def aggiungi_evento():
+    from datetime import datetime
+    data_ev  = request.form["data_evento"]
+    titolo   = request.form["titolo"]
+    categoria= request.form.get("categoria", "Altro")
+    ricorr   = request.form.get("ricorrenza", "nessuna")
+    ora_ini  = request.form.get("ora_inizio", "08:00")
+    note     = request.form.get("note", "")
+    offset   = request.form.get("offset", "0")
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO calendario_eventi
+        (data_evento, titolo, categoria, ricorrenza, ora_inizio, note)
+        VALUES (%s,%s,%s,%s,%s,%s)
+    """, (data_ev, titolo, categoria, ricorr, ora_ini, note))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f"/calendario?offset={offset}")
+
+
+@app.route("/elimina_evento", methods=["POST"])
+def elimina_evento():
+    evento_id  = request.form["evento_id"]
+    tipo       = request.form["tipo"]  # 'questa' o 'tutte'
+    data_ev    = request.form["data_evento"]
+    offset     = request.form.get("offset", "0")
+
+    conn = db()
+    cur = conn.cursor()
+
+    if tipo == "tutte":
+        cur.execute("DELETE FROM calendario_eventi WHERE id=%s", (evento_id,))
+        cur.execute("DELETE FROM calendario_eccezioni WHERE evento_id=%s", (evento_id,))
+    else:
+        # Aggiunge eccezione per questa data
+        cur.execute("""
+            INSERT INTO calendario_eccezioni (evento_id, data_eccezione)
+            VALUES (%s,%s) ON CONFLICT DO NOTHING
+        """, (evento_id, data_ev))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f"/calendario?offset={offset}")
+
+
+@app.route("/salva_nota_weekend", methods=["POST"])
+def salva_nota_weekend():
+    lun   = request.form["settimana_inizio"]
+    testo = request.form["testo"]
+    offset= request.form.get("offset", "0")
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO calendario_note_weekend (settimana_inizio, testo)
+        VALUES (%s,%s)
+        ON CONFLICT (settimana_inizio) DO UPDATE SET testo=EXCLUDED.testo
+    """, (lun, testo))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f"/calendario?offset={offset}")
+
+
+# ==================================================
+# CRONOMETRO
+# ==================================================
+
+@app.route("/cronometro")
+def cronometro():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM produzione WHERE done=0 ORDER BY cliente, prodotto")
+    ordini = cur.fetchall()
+    cur.execute("""
+        SELECT * FROM sessioni_cronometro
+        ORDER BY data_inizio DESC LIMIT 20
+    """)
+    sessioni = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("cronometro.html",
+        ordini=ordini,
+        sessioni=sessioni,
+        moltiplicatori=MOLTIPLICATORI,
+        pedane_config=PEDANE_CONFIG,
+    )
+
+
+@app.route("/start_sessione", methods=["POST"])
+def start_sessione():
+    from datetime import datetime
+    import json as _json
+
+    conn = db()
+    cur = conn.cursor()
+
+    # Prende tutti gli ordini in produzione non completati
+    cur.execute("SELECT * FROM produzione WHERE done=0 ORDER BY id")
+    ordini = cur.fetchall()
+
+    dettagli = []
+    tempo_prod_min = 0
+    prodotti_unici = set()
+    formati = set()
+
+    for o in ordini:
+        molt = MOLTIPLICATORI.get(o["cliente"], {}).get(o["prodotto"], 1)
+        fardelli = o["qty"] / molt
+        formato = "2L" if "2L" in o["prodotto"] else "1L"
+        fard_ped = PEDANE_CONFIG.get(o["cliente"], {}).get(formato, 64)
+        if fard_ped:
+            pedane = fardelli / fard_ped
+            tempo_prod_min += pedane * get_tempo_pedana(o["cliente"], formato)
+        prodotti_unici.add(o["prodotto"])
+        formati.add(formato)
+        dettagli.append({
+            "id": o["id"],
+            "cliente": o["cliente"],
+            "prodotto": o["prodotto"],
+            "qty": o["qty"],
+            "fardelli": round(fardelli, 1),
+        })
+
+    # Stima con tutte le voci
+    tempo_stimato = tempo_prod_min
+    tempo_stimato += 30 + 60                  # riscaldamento + pranzo
+    tempo_stimato += len(prodotti_unici) * 3  # cambio etichetta 3 min
+    if len(formati) > 1:
+        tempo_stimato += 10                   # cambio formato
+    tempo_stimato = round(tempo_stimato * 1.075)
+
+    cur.execute("""
+        INSERT INTO sessioni_cronometro
+        (data_inizio, ordini_json, cambi_formato, cambi_etichetta, tempo_stimato_min, stato)
+        VALUES (%s,%s,%s,%s,%s,'in_corso')
+        RETURNING id
+    """, (
+        datetime.now(),
+        _json.dumps(dettagli),
+        1 if len(formati) > 1 else 0,
+        len(prodotti_unici),
+        tempo_stimato,
+    ))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect("/produzione")
+
+
+@app.route("/stop_sessione/<int:sid>", methods=["POST"])
+def stop_sessione(sid):
+    from datetime import datetime
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sessioni_cronometro WHERE id=%s", (sid,))
+    sess = cur.fetchone()
+    if sess:
+        ora_fine = datetime.now()
+        minuti_reali = round((ora_fine - sess["data_inizio"]).total_seconds() / 60)
+        cur.execute("""
+            UPDATE sessioni_cronometro
+            SET data_fine=%s, tempo_reale_min=%s, stato='completata'
+            WHERE id=%s
+        """, (ora_fine, minuti_reali, sid))
+        conn.commit()
+    cur.close()
+    conn.close()
+    return redirect("/produzione")
 
 
 # ==================================================
