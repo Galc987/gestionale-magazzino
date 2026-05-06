@@ -4,93 +4,127 @@
 <title>Gestionale Aziendale</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 40px 20px; }
-h1 { margin-bottom: 30px; color: #2c3e50; }
+body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 28px 20px; }
+h1 { margin-bottom: 20px; color: #2c3e50; font-size: 22px; }
+
+/* Mini calendario settimana in home */
+.cal-home { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.07); margin-bottom: 24px; overflow: hidden; }
+.cal-home-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; }
+.cal-home-header h2 { font-size: 15px; color: #2c3e50; }
+.cal-home-header a { font-size: 13px; color: #2980b9; text-decoration: none; }
+.cal-home-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-home-giorno { border-right: 1px solid #f5f5f5; padding: 8px 6px; min-height: 80px; }
+.cal-home-giorno:last-child { border-right: none; }
+.cal-home-giorno.weekend { background: #f8f5ff; }
+.cal-home-giorno.oggi { background: #eaf4fb; }
+.cal-home-nome { font-size: 10px; text-transform: uppercase; color: #aaa; font-weight: bold; letter-spacing: .4px; margin-bottom: 3px; }
+.cal-home-num { font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
+.cal-home-giorno.oggi .cal-home-num { color: #2980b9; }
+.mini-ev-home { font-size: 10px; padding: 2px 4px; border-radius: 3px; color: white; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-imbottigliamento { background: #2980b9; }
+.cat-manutenzione     { background: #e67e22; }
+.cat-pulizia          { background: #27ae60; }
+.cat-consegna         { background: #8e44ad; }
+.cat-ordine           { background: #c0392b; }
+.cat-magazzino        { background: #16a085; }
+.cat-altro            { background: #7f8c8d; }
+.piu-home { font-size: 9px; color: #bbb; }
+
+/* Card menu */
 .menu {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px; max-width: 900px; margin-bottom: 30px;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 16px;
+    max-width: 900px;
+    margin-bottom: 20px;
 }
 a.card {
-    display: block; padding: 28px 20px; background: white;
+    display: block; padding: 22px 16px; background: white;
     text-decoration: none; color: #2c3e50; border-radius: 12px;
-    font-size: 20px; text-align: center;
-    box-shadow: 0 2px 10px rgba(0,0,0,.08); transition: box-shadow .2s;
+    font-size: 18px; text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07); transition: box-shadow .2s;
     position: relative;
 }
-a.card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.15); }
-.icon { font-size: 34px; display: block; margin-bottom: 10px; }
+a.card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.13); }
+.icon { font-size: 30px; display: block; margin-bottom: 8px; }
 .badge {
-    position: absolute; top: 12px; right: 12px;
+    position: absolute; top: 10px; right: 10px;
     background: #e74c3c; color: white; border-radius: 50%;
-    width: 24px; height: 24px; font-size: 13px; font-weight: bold;
+    width: 22px; height: 22px; font-size: 12px; font-weight: bold;
     display: flex; align-items: center; justify-content: center;
 }
-/* Alert box */
-.alert-home {
-    max-width: 900px;
-    background: #fff3cd; border-left: 4px solid #f39c12;
-    border-radius: 8px; padding: 14px 18px;
-}
-.alert-home h3 { color: #856404; font-size: 15px; margin-bottom: 8px; }
-.alert-item { font-size: 13px; color: #7d5a00; padding: 3px 0; }
-.alert-item strong { color: #5a3e00; }
+
+/* Alert scorte */
+.alert-home { max-width: 900px; background: #fff3cd; border-left: 4px solid #f39c12; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+.alert-home h3 { color: #856404; font-size: 14px; margin-bottom: 6px; }
+.alert-item { font-size: 13px; color: #7d5a00; padding: 2px 0; }
 </style>
 </head>
 <body>
 <h1>Gestionale Aziendale</h1>
-<div class="menu">
-    <a class="card" href="/produzione">
-        <span class="icon">🏭</span>Produzione
-    </a>
-    <a class="card" href="/magazzino">
-        <span class="icon">📦</span>Magazzino
-        {% if alert_mp %}
-        <span class="badge">{{ alert_mp|length }}</span>
-        {% endif %}
-    </a>
-    <a class="card" href="/consegne">
-        <span class="icon">🚚</span>Consegne
-    </a>
-    <a class="card" href="/storico">
-        <span class="icon">📋</span>Storico
-    </a>
-    <a class="card" href="/analisi">
-        <span class="icon">📊</span>Analisi
-    </a>
-    <a class="card" href="/calendario/mese">
-        <span class="icon">📅</span>Calendario
-    </a>
-    <a class="card" href="/cronometro">
-        <span class="icon">⏱️</span>Cronometro
-    </a>
-    <a class="card" href="/backup_manuale" style="border: 2px dashed #ccc; background:#fafafa; color:#888;">
-        <span class="icon">💾</span>Backup DB
-    </a>
+
+<!-- MINI CALENDARIO SETTIMANA -->
+<div class="cal-home">
+    <div class="cal-home-header">
+        <h2>📅 Settimana corrente</h2>
+        <a href="/calendario/mese">Vedi calendario completo →</a>
+    </div>
+    <div class="cal-home-grid">
+        {% set nomi = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'] %}
+        {% for g in giorni_sett %}
+        {% set evs = eventi_home.get(g.isoformat(), []) %}
+        {% set is_weekend = loop.index0 >= 5 %}
+        {% set is_oggi = g == oggi %}
+        <div class="cal-home-giorno {% if is_weekend %}weekend{% endif %} {% if is_oggi %}oggi{% endif %}">
+            <div class="cal-home-nome">{{ nomi[loop.index0] }}</div>
+            <div class="cal-home-num">{{ g.day }}</div>
+            {% for ev in evs[:2] %}
+            {% set cat_css = ev.categoria | lower | replace(' ', '') %}
+            <div class="mini-ev-home cat-{{ cat_css }}" title="{{ ev.titolo }}">
+                {{ ev.titolo }}
+            </div>
+            {% endfor %}
+            {% if evs | length > 2 %}
+            <div class="piu-home">+{{ evs|length - 2 }} altri</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
-<div style="margin-top:16px; max-width:900px;">
-    <a href="/ripristino" style="font-size:13px; color:#aaa; text-decoration:none;">
-        🔄 Ripristino da backup
-    </a>
-</div>
-
+<!-- ALERT SCORTE -->
 {% if alert_mp %}
 <div class="alert-home">
-    <h3>⚠️ Scorte in esaurimento — effettua un ordine</h3>
+    <h3>⚠️ Scorte in esaurimento</h3>
     {% for a in alert_mp %}
-    <div class="alert-item">
-        🔴
-        {% if a.cliente == "GLOBALE" %}
-            <strong>{{ a.materiale }}</strong>
-        {% else %}
-            <strong>{{ a.cliente }}</strong> — {{ a.materiale }}
-        {% endif %}
+    <div class="alert-item">🔴
+        {% if a.cliente == "GLOBALE" %}<strong>{{ a.materiale }}</strong>
+        {% else %}<strong>{{ a.cliente }}</strong> — {{ a.materiale }}{% endif %}
         : {{ a.qty }} (soglia: {{ a.soglia }})
     </div>
     {% endfor %}
 </div>
 {% endif %}
+
+<!-- MENU CARD -->
+<div class="menu">
+    <a class="card" href="/produzione"><span class="icon">🏭</span>Produzione</a>
+    <a class="card" href="/magazzino">
+        <span class="icon">📦</span>Magazzino
+        {% if alert_mp %}<span class="badge">{{ alert_mp|length }}</span>{% endif %}
+    </a>
+    <a class="card" href="/consegne"><span class="icon">🚚</span>Consegne</a>
+    <a class="card" href="/storico"><span class="icon">📋</span>Storico</a>
+    <a class="card" href="/analisi"><span class="icon">📊</span>Analisi</a>
+    <a class="card" href="/calendario/mese"><span class="icon">📅</span>Calendario</a>
+    <a class="card" href="/backup_manuale" style="border:2px dashed #ccc;background:#fafafa;color:#aaa;">
+        <span class="icon">💾</span>Backup DB
+    </a>
+</div>
+
+<div style="margin-top:8px; max-width:900px;">
+    <a href="/ripristino" style="font-size:12px;color:#bbb;text-decoration:none;">🔄 Ripristino da backup</a>
+</div>
 
 </body>
 </html>
